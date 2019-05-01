@@ -3,7 +3,7 @@
  * Knock Detector
  *
  * @author Takuto Yanagida
- * @version 2019-05-01
+ * @version 2019-05-02
  *
  */
 
@@ -25,8 +25,8 @@ class knock_detector {
 	unsigned int _limit_t = 300;
 	int _max_sep = 5;
 	int _edge_seps[4] = { 3, 3, 3, 3 };
-	int _edge_ws[4]   = { 1, 1, 1, 1 };
-	int _ne_ws[4] = { 16, 16, 16, 16 };
+	int _edge_ws[4]   = { 4, 4, 4, 4 };
+	int _ne_ws[4] = { 18, 18, 18, 18 };
 
 	bool _just_out = false;
 	int _count = 0;
