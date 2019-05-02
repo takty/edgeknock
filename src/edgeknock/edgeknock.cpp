@@ -20,42 +20,44 @@
 
 
 const wchar_t WIN_CLS[] = L"EDGEKNOCK";
-LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-ATOM InitApplication(HINSTANCE);
-
-knock_detector kd;
-corner_detector cd;
-
+knock_detector Kd;
+corner_detector Cd;
 CRITICAL_SECTION Cs;
 HANDLE ThreadHandle;
-
 wchar_t IniPath[MAX_LINE];
-
-BOOL FullScreenCheck = TRUE;
+bool FullScreenCheck = true;
 wchar_t Cmd[MAX_LINE], Opt[MAX_LINE];
-
 wchar_t MsgStr[MAX_LINE];
 int MsgTimeLeft = 0;
 
-void WmCreate(HWND hwnd);
-void WmPaint(HWND hwnd);
-void WmMouseMoveHook(HWND hwnd, int x, int y);
-void WmHotKey(HWND hwnd, int id);
+ATOM InitApplication(HINSTANCE);
+LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+void WmCreate(HWND);
+void WmPaint(HWND);
+void WmMouseMove(HWND, int, int);
+void WmHotkey(HWND, int);
+void WmTimer(HWND);
+void WmUser(HWND);
+void WmClose(HWND);
 
-void LoadIniFile(HWND hwnd);
+void LoadConfiguration(HWND hwnd);
 void SetHotkey(HWND hwnd, const wchar_t *key, int id);
-DWORD WINAPI CheckIniFileThreadProc(LPVOID d);
 
-wchar_t* LoadPath(wchar_t *path, int corner, int area, int index);
-void Exec(HWND hwnd, LPCTSTR path, int corner, int area);
+void ExecuteEdge(HWND hwnd, int area, int index);
+void ExecuteCorner(HWND hwnd, int corner);
+void ExecuteHotkey(HWND hwnd, int id);
+void Execute(HWND hwnd, const wchar_t path[], int corner, int area);
+void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]);
+void ShellExecuteBackground(const wchar_t cmd[], const wchar_t opt[]);
 DWORD WINAPI OpenFileThreadProc(LPVOID d);
+
 void ShowMessage(HWND hwnd, const wchar_t *msg, int corner = -1, int area = -1);
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instance, _In_ LPWSTR, _In_ int) {
-	::CreateMutex(NULL, FALSE, WIN_CLS);
+	::CreateMutex(nullptr, FALSE, WIN_CLS);
 	if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-		HWND handle = ::FindWindow(WIN_CLS, NULL);
+		HWND handle = ::FindWindow(WIN_CLS, nullptr);
 		if (handle) ::SendMessage(handle, WM_CLOSE, 0, 0);
 		return FALSE;
 	}
@@ -64,7 +66,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instanc
 	if (!hWnd) return FALSE;
 
 	::InitializeCriticalSection(&Cs);
-
 	MSG msg;
     while (::GetMessage(&msg, nullptr, 0, 0)) {
         ::TranslateMessage(&msg);
@@ -95,37 +96,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
 	switch (message) {
 	case WM_CREATE:        WmCreate(hwnd); break;
 	case WM_PAINT:         WmPaint(hwnd); break;
-	case WM_MOUSEMOVEHOOK: WmMouseMoveHook(hwnd, (int) wparam, (int) lparam); break;
-	case WM_HOTKEY:        WmHotKey(hwnd, (int) wparam); break;
-	case WM_TIMER:
-		if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) ShowWindow(hwnd, SW_HIDE);
-		break;
-	case WM_USER:
-		ShowMessage(hwnd, L"Edgeknock - The setting is updated.");
-		LoadIniFile(hwnd);
-		break;
-	case WM_CLOSE:
-		EndHook();  // mh.dll
-		::DestroyWindow(hwnd);
-		break;
-	case WM_DESTROY:
-		::PostQuitMessage(0);
-		break;
-	default:
-		return ::DefWindowProc(hwnd, message, wparam, lparam);
+	case WM_MOUSEMOVEHOOK: WmMouseMove(hwnd, (int) wparam, (int) lparam); break;
+	case WM_HOTKEY:        WmHotkey(hwnd, (int) wparam); break;
+	case WM_TIMER:         WmTimer(hwnd); break;
+	case WM_USER:          WmUser(hwnd); break;
+	case WM_CLOSE:         WmClose(hwnd); break;
+	case WM_DESTROY:       ::PostQuitMessage(0); break;
+	default:               return ::DefWindowProc(hwnd, message, wparam, lparam);
 	}
 	return 0;
 }
 
 void WmCreate(HWND hwnd) {
-	::GetModuleFileName(NULL, IniPath, MAX_PATH);
+	::GetModuleFileName(nullptr, IniPath, MAX_PATH);
 	IniPath[wcslen(IniPath) - 3] = L'\0';
 	wcscat_s(IniPath, MAX_PATH, L"ini");
 
-	LoadIniFile(hwnd);
-	DWORD thread_id;
-	::CreateThread(NULL, 0, CheckIniFileThreadProc, &hwnd, 0, &thread_id);
-	::SetTimer(hwnd, 1, 100, NULL);
+	LoadConfiguration(hwnd);
+	win_util::check_module_directory(hwnd, WM_USER);
+	::SetTimer(hwnd, 1, 100, nullptr);
 	SetOwnerWindow(hwnd);  // mh.dll
 	SetHook();  // mh.dll
 
@@ -148,34 +137,40 @@ void WmPaint(HWND hwnd) {
 	::DeleteObject(dlgFont);
 }
 
-void WmMouseMoveHook(HWND hwnd, int x, int y) {
-	wchar_t path[MAX_LINE];
+void WmMouseMove(HWND hwnd, int x, int y) {
 	const int cx = ::GetSystemMetrics(SM_CXSCREEN);
 	const int cy = ::GetSystemMetrics(SM_CYSCREEN);
 
-	// Corner action
-	int corner = cd.detect(x, y, cx, cy);
+	int corner = Cd.detect(x, y, cx, cy);
 	if (corner != -1) {
-		LoadPath(path, corner, -1, -1);
-		Exec(hwnd, path, corner, -1);
+		ExecuteCorner(hwnd, corner);
 		return;
 	}
-	// Knock action
-	knock_detector::area_index r = kd.detect(x, y, cx, cy);
+	knock_detector::area_index r = Kd.detect(x, y, cx, cy);
 	if (knock_detector::KNOCK <= r.area) {
-		LoadPath(path, -1, r.area, r.index);
-		Exec(hwnd, path, -1, r.area);
+		ExecuteEdge(hwnd, r.area, r.index);
 	} else if (r.area == knock_detector::READY) {
 		if (IsWindowVisible(hwnd)) ShowWindow(hwnd, SW_HIDE);
 	}
 }
 
-void WmHotKey(HWND hwnd, int id) {
+void WmHotkey(HWND hwnd, int id) {
 	if (MAX_HOTKEY <= id) return;
-	wchar_t path[MAX_LINE], key[8];
-	wsprintf(key, L"Path%d", id + 1);
-	::GetPrivateProfileString(L"HotKey", key, L"", path, MAX_LINE, IniPath);
-	Exec(hwnd, path, -1, -1);
+	ExecuteHotkey(hwnd, id);
+}
+
+void WmTimer(HWND hwnd) {
+	if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) ShowWindow(hwnd, SW_HIDE);
+}
+
+void WmUser(HWND hwnd) {
+	ShowMessage(hwnd, L"Edgeknock - The setting is updated.");
+	LoadConfiguration(hwnd);
+}
+
+void WmClose(HWND hwnd) {
+	EndHook();  // mh.dll
+	::DestroyWindow(hwnd);
 }
 
 
@@ -186,8 +181,8 @@ void WmHotKey(HWND hwnd, int id) {
 
 
 
-void LoadIniFile(HWND hwnd) {
-	FullScreenCheck = ::GetPrivateProfileInt(L"Setting", L"FullScreenCheck", FullScreenCheck, IniPath);
+void LoadConfiguration(HWND hwnd) {
+	FullScreenCheck = (bool) ::GetPrivateProfileInt(L"Setting", L"FullScreenCheck", FullScreenCheck, IniPath);
 
 	int limitTime = ::GetPrivateProfileInt(L"Setting", L"LimitTime", 300, IniPath);
 	int edgeW = ::GetPrivateProfileInt(L"Setting", L"EdgeWidth", 4, IniPath);
@@ -206,14 +201,14 @@ void LoadIniFile(HWND hwnd) {
 	int neEdgeWT = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthTop", neEdgeW, IniPath);
 	int neEdgeWB = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthBottom", neEdgeW, IniPath);
 
-	kd.set_time_limit(limitTime);
-	kd.set_edge_separations(sepL, sepR, sepT, sepB);
-	kd.set_edge_widthes(edgeWL, edgeWR, edgeWT, edgeWB);
-	kd.set_no_effect_edge_widthes(neEdgeWL, neEdgeWR, neEdgeWT, neEdgeWB);
+	Kd.set_time_limit(limitTime);
+	Kd.set_edge_separations(sepL, sepR, sepT, sepB);
+	Kd.set_edge_widthes(edgeWL, edgeWR, edgeWT, edgeWB);
+	Kd.set_no_effect_edge_widthes(neEdgeWL, neEdgeWR, neEdgeWT, neEdgeWB);
 
 	int cornerSize = ::GetPrivateProfileInt(L"Setting", L"CornerSize", 32, IniPath);
 
-	cd.set_corner_size(cornerSize);
+	Cd.set_corner_size(cornerSize);
 
 	for (int i = 0; i < MAX_HOTKEY; ++i) {
 		wchar_t key[8], hotkey[6];
@@ -234,30 +229,6 @@ void SetHotkey(HWND hwnd, const wchar_t *key, int id) {
 	if (flag) ::RegisterHotKey(hwnd, id, flag, key[4]);
 }
 
-DWORD WINAPI CheckIniFileThreadProc(LPVOID d) {
-	HWND hWnd = *(HWND*)d;
-	wchar_t path[MAX_PATH];
-	::GetModuleFileName(NULL, path, MAX_PATH - 1);
-	path::parent_dest(path);
-
-	// Observe ini file writing
-	HANDLE handle = ::FindFirstChangeNotification(path, FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
-	if (handle == INVALID_HANDLE_VALUE) return (DWORD)-1;
-
-	// Wait until changing
-	while (true) {
-		if (::WaitForSingleObject(handle, INFINITE) == WAIT_OBJECT_0) {
-			::SendMessage(hWnd, WM_USER, 0, 0);  // Notify changing
-		} else {
-			break;
-		}
-		// Wait again
-		if (!::FindNextChangeNotification(handle)) break;
-	}
-	::FindCloseChangeNotification(handle);
-	return 0;
-}
-
 
 
 
@@ -266,30 +237,49 @@ DWORD WINAPI CheckIniFileThreadProc(LPVOID d) {
 
 
 
-wchar_t* LoadPath(wchar_t *path, int corner, int area, int index) {
-	wchar_t key[8];
-	wchar_t sec[][7] = { L"Left", L"Right", L"Top", L"Bottom" };
-
-	if (corner != -1) {
-		wsprintf(key, L"Path%d", corner + 1);
-		::GetPrivateProfileString(L"Corner", key, L"", path, MAX_LINE, IniPath);
-	} else {
-		wsprintf(key, L"Path%d", index + 1);
-		::GetPrivateProfileString(sec[area], key, L"", path, MAX_LINE, IniPath);
-	}
-	return path;
+void ExecuteEdge(HWND hwnd, int area, int index) {
+	wchar_t path[MAX_LINE];
+	wchar_t key[8], sec[][7] = { L"Left", L"Right", L"Top", L"Bottom" };
+	wsprintf(key, L"Path%d", index + 1);
+	::GetPrivateProfileString(sec[area], key, L"", path, MAX_LINE, IniPath);
+	Execute(hwnd, path, -1, area);
 }
 
-void Exec(HWND hwnd, LPCTSTR path, int corner, int area) {
+void ExecuteCorner(HWND hwnd, int corner) {
+	wchar_t path[MAX_LINE];
+	wchar_t key[8];
+	wsprintf(key, L"Path%d", corner + 1);
+	::GetPrivateProfileString(L"Corner", key, L"", path, MAX_LINE, IniPath);
+	Execute(hwnd, path, corner, -1);
+}
+
+void ExecuteHotkey(HWND hwnd, int id) {
+	wchar_t path[MAX_LINE];
+	wchar_t key[8];
+	wsprintf(key, L"Path%d", id + 1);
+	::GetPrivateProfileString(L"HotKey", key, L"", path, MAX_LINE, IniPath);
+	Execute(hwnd, path, -1, -1);
+}
+
+void Execute(HWND hwnd, const wchar_t path[], int corner, int area) {
 	if (path[0] == L'\0') return;
 	if (FullScreenCheck && win_util::is_foreground_window_fullscreen()) return;
 	if (ThreadHandle != 0) return;  // When starting program
 
-	wchar_t cmd[MAX_PATH], opt[MAX_PATH];
+	win_util::set_foreground_window(hwnd);
+
+	wchar_t cmd[MAX_PATH], opt[MAX_PATH], fn[MAX_PATH];
+	ExtractCommandLine(path, cmd, opt);
+	ShowMessage(hwnd, path::name(fn, cmd), corner, area);  // Show message first
+
+	ShellExecuteBackground(cmd, opt);
+}
+
+void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
 	cmd[0] = opt[0] = L'\0';
-	for (const wchar_t *c = &path[0]; *c != L'\0'; ++c) {
+	for (const wchar_t* c = &path[0]; *c != L'\0'; ++c) {
 		if (*c == '|') {
-			LPWSTR r = lstrcpyn(cmd, path, (int) (c - &path[0] + 1));  // Increase one for \0
+			LPWSTR r = lstrcpyn(cmd, path, (int)(c - &path[0] + 1));  // Increase one for \0
 			wcscpy_s(opt, MAX_PATH, c + 1);
 			break;
 		}
@@ -299,19 +289,17 @@ void Exec(HWND hwnd, LPCTSTR path, int corner, int area) {
 		wcscpy_s(cmd, MAX_PATH, IniPath);
 		opt[0] = L'\0';
 	}
-	win_util::set_foreground_window(hwnd);
+	path::absolute_path(cmd);
+}
 
+void ShellExecuteBackground(const wchar_t cmd[], const wchar_t opt[]) {
 	::EnterCriticalSection(&Cs);
-	wcscpy_s(Cmd, MAX_LINE, cmd);
-	path::absolute_path(Cmd);
-	wcscpy_s(Opt, MAX_LINE, opt);
+	wcscpy_s(Cmd, MAX_PATH, cmd);
+	wcscpy_s(Opt, MAX_PATH, opt);
 	::LeaveCriticalSection(&Cs);
 
-	wchar_t fileName[MAX_PATH];
-	ShowMessage(hwnd, path::name(fileName, cmd), corner, area);  // Show message first
-
 	DWORD thread_id;
-	ThreadHandle = ::CreateThread(NULL, 0, OpenFileThreadProc, NULL, 0, &thread_id);
+	ThreadHandle = ::CreateThread(nullptr, 0, OpenFileThreadProc, nullptr, 0, &thread_id);
 	if (ThreadHandle) {
 		::CloseHandle(ThreadHandle);  // Release handle
 		ThreadHandle = 0;
@@ -319,16 +307,16 @@ void Exec(HWND hwnd, LPCTSTR path, int corner, int area) {
 }
 
 DWORD WINAPI OpenFileThreadProc(LPVOID d) {
-	wchar_t oldCurrent[MAX_PATH];
-	::GetCurrentDirectory(MAX_PATH, oldCurrent);
+	wchar_t old_cd[MAX_PATH];
+	::GetCurrentDirectory(MAX_PATH, old_cd);
 
 	::EnterCriticalSection(&Cs);
 	wchar_t parent[MAX_PATH];
 	::SetCurrentDirectory(path::parent(parent, Cmd));
-	::ShellExecute(NULL, NULL, Cmd, Opt, L"", SW_SHOW);
+	::ShellExecute(nullptr, nullptr, Cmd, Opt, L"", SW_SHOW);
 	::LeaveCriticalSection(&Cs);
 
-	::SetCurrentDirectory(oldCurrent);  // for making removable disk ejectable
+	::SetCurrentDirectory(old_cd);  // for making removable disk ejectable
 	::ExitThread(0);
 }
 
@@ -376,8 +364,8 @@ void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 		l = (dw - w) / 2;
 		t = (dh - h) / 2;
 	}
-	::MoveWindow(hwnd, l, t, w, h, FALSE);
 	MsgTimeLeft = 10;
+	::MoveWindow(hwnd, l, t, w, h, FALSE);
 	::ShowWindow(hwnd, SW_SHOW);
 	::DeleteObject(dlgFont);
 	::ReleaseDC(hwnd, hdc);

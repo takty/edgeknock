@@ -3,18 +3,50 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2019-05-01
+ * @version 2019-05-02
  *
  */
 
 
 #pragma once
 #include <windows.h>
+#include "path.h"
 
 
 class win_util {
 
+	static DWORD WINAPI check_module_directory_thread(LPVOID ps) {
+		HWND hwnd = (HWND) ((long long int*) ps)[0];
+		UINT msg = (UINT)((long long int*)ps)[1];
+		wchar_t path[MAX_PATH];
+		::GetModuleFileName(NULL, path, MAX_PATH - 1);
+		path::parent_dest(path);
+
+		// Observe ini file writing
+		HANDLE handle = ::FindFirstChangeNotification(path, FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
+		if (handle == INVALID_HANDLE_VALUE) return (DWORD)-1;
+
+		// Wait until changing
+		while (true) {
+			if (::WaitForSingleObject(handle, INFINITE) == WAIT_OBJECT_0) {
+				::SendMessage(hwnd, msg, 0, 0);  // Notify changing
+			} else {
+				break;
+			}
+			// Wait again
+			if (!::FindNextChangeNotification(handle)) break;
+		}
+		::FindCloseChangeNotification(handle);
+		return 0;
+	}
+
 public:
+
+	static void check_module_directory(HWND hwnd, UINT msg) {
+		DWORD thread_id;
+		static long long int ps[] = { (long long int) hwnd, msg };
+		::CreateThread(NULL, 0, win_util::check_module_directory_thread, ps, 0, &thread_id);
+	}
 
 	static void set_foreground_window(HWND hWnd) {
 		int win_id = ::GetWindowThreadProcessId(GetForegroundWindow(), NULL);
