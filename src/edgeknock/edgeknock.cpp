@@ -3,7 +3,7 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2019-05-02
+ * @version 2019-05-05
  *
  */
 
@@ -14,6 +14,7 @@
 #include "path.h"
 #include "knock_detector.h"
 #include "corner_detector.h"
+#include "shell_executer.h"
 
 #define MAX_LINE 1024  // Max length of path with option string
 #define MAX_HOTKEY 16  // Max hotkey count
@@ -22,11 +23,8 @@
 const wchar_t WIN_CLS[] = L"EDGEKNOCK";
 knock_detector Kd;
 corner_detector Cd;
-CRITICAL_SECTION Cs;
-HANDLE ThreadHandle;
 wchar_t IniPath[MAX_LINE];
 bool FullScreenCheck = true;
-wchar_t Cmd[MAX_LINE], Opt[MAX_LINE];
 wchar_t MsgStr[MAX_LINE];
 int MsgTimeLeft = 0;
 
@@ -48,9 +46,6 @@ void ExecuteCorner(HWND hwnd, int corner);
 void ExecuteHotkey(HWND hwnd, int id);
 void Execute(HWND hwnd, const wchar_t path[], int corner, int area);
 void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]);
-void ShellExecuteBackground(const wchar_t cmd[], const wchar_t opt[]);
-DWORD WINAPI OpenFileThreadProc(LPVOID d);
-
 void ShowMessage(HWND hwnd, const wchar_t *msg, int corner = -1, int area = -1);
 
 
@@ -65,13 +60,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instanc
 	HWND hWnd = ::CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, WIN_CLS, L"", WS_BORDER | WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hinstance, nullptr);
 	if (!hWnd) return FALSE;
 
-	::InitializeCriticalSection(&Cs);
 	MSG msg;
     while (::GetMessage(&msg, nullptr, 0, 0)) {
         ::TranslateMessage(&msg);
         ::DispatchMessage(&msg);
     }
-	::DeleteCriticalSection(&Cs);
     return (int) msg.wParam;
 }
 
@@ -264,7 +257,7 @@ void ExecuteHotkey(HWND hwnd, int id) {
 void Execute(HWND hwnd, const wchar_t path[], int corner, int area) {
 	if (path[0] == L'\0') return;
 	if (FullScreenCheck && win_util::is_foreground_window_fullscreen()) return;
-	if (ThreadHandle != 0) return;  // When starting program
+	if (shell_executer::is_executing() != 0) return;  // When starting program
 
 	win_util::set_foreground_window(hwnd);
 
@@ -272,7 +265,7 @@ void Execute(HWND hwnd, const wchar_t path[], int corner, int area) {
 	ExtractCommandLine(path, cmd, opt);
 	ShowMessage(hwnd, path::name(fn, cmd), corner, area);  // Show message first
 
-	ShellExecuteBackground(cmd, opt);
+	shell_executer::execute(cmd, opt);
 }
 
 void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
@@ -291,42 +284,6 @@ void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
 	}
 	path::absolute_path(cmd);
 }
-
-void ShellExecuteBackground(const wchar_t cmd[], const wchar_t opt[]) {
-	::EnterCriticalSection(&Cs);
-	wcscpy_s(Cmd, MAX_PATH, cmd);
-	wcscpy_s(Opt, MAX_PATH, opt);
-	::LeaveCriticalSection(&Cs);
-
-	DWORD thread_id;
-	ThreadHandle = ::CreateThread(nullptr, 0, OpenFileThreadProc, nullptr, 0, &thread_id);
-	if (ThreadHandle) {
-		::CloseHandle(ThreadHandle);  // Release handle
-		ThreadHandle = 0;
-	}
-}
-
-DWORD WINAPI OpenFileThreadProc(LPVOID d) {
-	wchar_t old_cd[MAX_PATH];
-	::GetCurrentDirectory(MAX_PATH, old_cd);
-
-	::EnterCriticalSection(&Cs);
-	wchar_t parent[MAX_PATH];
-	::SetCurrentDirectory(path::parent(parent, Cmd));
-	::ShellExecute(nullptr, nullptr, Cmd, Opt, L"", SW_SHOW);
-	::LeaveCriticalSection(&Cs);
-
-	::SetCurrentDirectory(old_cd);  // for making removable disk ejectable
-	::ExitThread(0);
-}
-
-
-
-
-// ----------------------------------------------------------------------------
-
-
-
 
 void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 	size_t len = wcslen(msg);

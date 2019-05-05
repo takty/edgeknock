@@ -39,6 +39,9 @@
     <ClInclude Include="knock_detector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="shell_executer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
