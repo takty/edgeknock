@@ -3,7 +3,7 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2019-05-05
+ * @version 2019-05-18
  *
  */
 
@@ -120,7 +120,7 @@ void WmPaint(HWND hwnd) {
 
 	RECT r;
 	::GetClientRect(hwnd, &r);
-	HFONT dlgFont = win_util::get_default_font();
+	HFONT dlgFont = win_util::get_default_font(hwnd);
 	::SelectObject(hdc, dlgFont);
 	::SetBkMode(hdc, TRANSPARENT);
 	::SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
@@ -131,8 +131,9 @@ void WmPaint(HWND hwnd) {
 }
 
 void WmMouseMove(HWND hwnd, int x, int y) {
-	const int cx = ::GetSystemMetrics(SM_CXSCREEN);
-	const int cy = ::GetSystemMetrics(SM_CYSCREEN);
+	const int dpi = ::GetDpiForWindow(hwnd);
+	const int cx = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
+	const int cy = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
 
 	int corner = Cd.detect(x, y, cx, cy);
 	if (corner != -1) {
@@ -291,16 +292,17 @@ void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 
 	wcscpy_s(MsgStr, MAX_LINE, msg);
 	HDC hdc = ::GetDC(hwnd);
-	HFONT dlgFont = win_util::get_default_font();
+	HFONT dlgFont = win_util::get_default_font(hwnd);
 	::SelectObject(hdc, dlgFont);
 	SIZE font;
 	::GetTextExtentPoint32(hdc, msg, (int) len, &font);
 
 	POINT p;
 	::GetPhysicalCursorPos(&p);
-	int w = font.cx + 10, h = font.cy + 10;
-	int dw = ::GetSystemMetrics(SM_CXSCREEN), dh = ::GetSystemMetrics(SM_CYSCREEN);
-	int mw = ::GetSystemMetrics(SM_CXCURSOR), mh = ::GetSystemMetrics(SM_CYCURSOR);
+	const int w = font.cx + 10, h = font.cy + 10;
+	const int dpi = ::GetDpiForWindow(hwnd);
+	const int dw = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi), dh = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
+	const int mw = ::GetSystemMetricsForDpi(SM_CXCURSOR, dpi), mh = ::GetSystemMetricsForDpi(SM_CYCURSOR, dpi);
 
 	int l = 0, t = 0;
 	if (corner != -1) {

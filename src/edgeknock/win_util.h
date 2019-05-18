@@ -3,7 +3,7 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2019-05-02
+ * @version 2019-05-18
  *
  */
 
@@ -66,8 +66,9 @@ public:
 		HWND fw = ::GetForegroundWindow();
 		::GetWindowRect(fw, &s);
 
-		const int sw = ::GetSystemMetrics(SM_CXSCREEN);
-		const int sh = ::GetSystemMetrics(SM_CYSCREEN);
+		const int dpi = ::GetDpiForWindow(fw);
+		const int sw = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
+		const int sh = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
 
 		if (s.left <= 0 && s.top <= 0 && s.right >= sw && s.bottom >= sh) {
 			wchar_t cls[256];
@@ -77,11 +78,11 @@ public:
 		return false;
 	}
 
-	static HFONT get_default_font() {
+	static HFONT get_default_font(HWND hwnd) {
 		NONCLIENTMETRICS ncm;
 		ncm.cbSize = sizeof(ncm);
-		ncm.cbSize -= sizeof(ncm.iPaddedBorderWidth);
-		::SystemParametersInfo(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0);
+		const int dpi = ::GetDpiForWindow(hwnd);
+		::SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE, dpi);
 		return ::CreateFontIndirect(&(ncm.lfMessageFont));
 	}
 
