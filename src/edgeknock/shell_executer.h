@@ -28,7 +28,26 @@ class shell_executer {
 
 		wchar_t parent[MAX_PATH];
 		::SetCurrentDirectory(path::parent(parent, fp->file));
-		::ShellExecute(nullptr, nullptr, fp->file, fp->param, L"", SW_SHOW);
+
+		//HRESULT res = ::CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+		//HINSTANCE ret = ::ShellExecute(nullptr, nullptr, fp->file, fp->param, L"", SW_SHOW);
+		//HINSTANCE ret = ::ShellExecute(nullptr, nullptr, fp->file, fp->param, nullptr, SW_SHOW);
+		SHELLEXECUTEINFO sei;
+		sei.cbSize       = sizeof(SHELLEXECUTEINFO);
+		sei.fMask        = SEE_MASK_FLAG_LOG_USAGE | SEE_MASK_FLAG_DDEWAIT | SEE_MASK_UNICODE;
+		sei.hwnd         = nullptr;
+		sei.lpVerb       = nullptr;
+		sei.lpFile       = fp->file;
+		sei.lpParameters = fp->param;
+		sei.lpDirectory  = nullptr;
+		sei.nShow        = SW_SHOW;
+		sei.hInstApp     = nullptr;
+		bool ret = ::ShellExecuteEx(&sei);
+
+		_RPTFWN(_CRT_WARN, L"ShellExecute %d\n", GetLastError());
+
+		//::CoUninitialize();
 
 		::SetCurrentDirectory(old_cd);  // for making removable disk ejectable
 		::HeapFree(::GetProcessHeap(), 0, fp);
