@@ -1,12 +1,9 @@
 /**
- *
  * Path Utilities
  *
  * @author Takuto Yanagida
- * @version 2019-05-01
- *
+ * @version 2024-04-30
  */
-
 
 #pragma once
 #include <windows.h>

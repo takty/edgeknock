@@ -11,8 +11,6 @@
 // Windows Header Files:
 #include <windows.h>
 
-
-
 // Additional headers
 #include "mh.h"
 VOID SetModuleHandle(HMODULE hModule);

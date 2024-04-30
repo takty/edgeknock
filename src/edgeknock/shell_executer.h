@@ -1,17 +1,13 @@
 /**
- *
  * Shell Executer
  *
  * @author Takuto Yanagida
- * @version 2019-05-05
- *
+ * @version 2024-04-30
  */
-
 
 #pragma once
 #include <windows.h>
 #include "path.h"
-
 
 class shell_executer {
 
@@ -29,11 +25,7 @@ class shell_executer {
 		wchar_t parent[MAX_PATH];
 		::SetCurrentDirectory(path::parent(parent, fp->file));
 
-		//HRESULT res = ::CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-
-		//HINSTANCE ret = ::ShellExecute(nullptr, nullptr, fp->file, fp->param, L"", SW_SHOW);
-		//HINSTANCE ret = ::ShellExecute(nullptr, nullptr, fp->file, fp->param, nullptr, SW_SHOW);
-		SHELLEXECUTEINFO sei;
+		SHELLEXECUTEINFO sei{};
 		sei.cbSize       = sizeof(SHELLEXECUTEINFO);
 		sei.fMask        = SEE_MASK_FLAG_LOG_USAGE | SEE_MASK_FLAG_DDEWAIT | SEE_MASK_UNICODE;
 		sei.hwnd         = nullptr;
@@ -46,8 +38,6 @@ class shell_executer {
 		bool ret = ::ShellExecuteEx(&sei);
 
 		_RPTFWN(_CRT_WARN, L"ShellExecute %d\n", GetLastError());
-
-		//::CoUninitialize();
 
 		::SetCurrentDirectory(old_cd);  // for making removable disk ejectable
 		::HeapFree(::GetProcessHeap(), 0, fp);

@@ -1,12 +1,9 @@
 /**
- *
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2019-05-18
- *
+ * @version 2024-04-30
  */
-
 
 #include "stdafx.h"
 #include "edgeknock.h"
@@ -16,9 +13,8 @@
 #include "corner_detector.h"
 #include "shell_executer.h"
 
-#define MAX_LINE 1024  // Max length of path with option string
-#define MAX_HOTKEY 16  // Max hotkey count
-
+constexpr auto MAX_LINE = 1024;  // Max length of path with option string
+constexpr auto MAX_HOTKEY = 16;  // Max hotkey count
 
 const wchar_t WIN_CLS[] = L"EDGEKNOCK";
 knock_detector Kd;
@@ -39,21 +35,22 @@ void WmUser(HWND);
 void WmClose(HWND);
 
 void LoadConfiguration(HWND hwnd);
-void SetHotkey(HWND hwnd, const wchar_t *key, int id);
+void SetHotkey(HWND hwnd, const wchar_t* key, int id);
 
 void ExecuteEdge(HWND hwnd, int area, int index);
 void ExecuteCorner(HWND hwnd, int corner);
 void ExecuteHotkey(HWND hwnd, int id);
 void Execute(HWND hwnd, const wchar_t path[], int corner, int area);
 void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]);
-void ShowMessage(HWND hwnd, const wchar_t *msg, int corner = -1, int area = -1);
-
+void ShowMessage(HWND hwnd, const wchar_t* msg, int corner = -1, int area = -1);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instance, _In_ LPWSTR, _In_ int) {
 	::CreateMutex(nullptr, FALSE, WIN_CLS);
 	if (::GetLastError() == ERROR_ALREADY_EXISTS) {
 		HWND handle = ::FindWindow(WIN_CLS, nullptr);
-		if (handle) ::SendMessage(handle, WM_CLOSE, 0, 0);
+		if (handle) {
+			::SendMessage(handle, WM_CLOSE, 0, 0);
+		}
 		return FALSE;
 	}
 	InitApplication(hinstance);
@@ -69,7 +66,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instanc
 }
 
 ATOM InitApplication(HINSTANCE hinstance) {
-	WNDCLASSEXW wcex;
+	WNDCLASSEXW wcex{};
 	wcex.cbSize         = sizeof(WNDCLASSEX);
 	wcex.style          = CS_HREDRAW | CS_VREDRAW;
 	wcex.lpfnWndProc    = WndProc;
@@ -89,8 +86,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
 	switch (message) {
 	case WM_CREATE:        WmCreate(hwnd); break;
 	case WM_PAINT:         WmPaint(hwnd); break;
-	case WM_MOUSEMOVEHOOK: WmMouseMove(hwnd, (int) wparam, (int) lparam); break;
-	case WM_HOTKEY:        WmHotkey(hwnd, (int) wparam); break;
+	case WM_MOUSEMOVEHOOK: WmMouseMove(hwnd, (int)wparam, (int)lparam); break;
+	case WM_HOTKEY:        WmHotkey(hwnd, (int)wparam); break;
 	case WM_TIMER:         WmTimer(hwnd); break;
 	case WM_USER:          WmUser(hwnd); break;
 	case WM_CLOSE:         WmClose(hwnd); break;
@@ -144,17 +141,23 @@ void WmMouseMove(HWND hwnd, int x, int y) {
 	if (knock_detector::KNOCK <= r.area) {
 		ExecuteEdge(hwnd, r.area, r.index);
 	} else if (r.area == knock_detector::READY) {
-		if (IsWindowVisible(hwnd)) ShowWindow(hwnd, SW_HIDE);
+		if (IsWindowVisible(hwnd)) {
+			ShowWindow(hwnd, SW_HIDE);
+		}
 	}
 }
 
 void WmHotkey(HWND hwnd, int id) {
-	if (MAX_HOTKEY <= id) return;
+	if (MAX_HOTKEY <= id) {
+		return;
+	}
 	ExecuteHotkey(hwnd, id);
 }
 
 void WmTimer(HWND hwnd) {
-	if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) ShowWindow(hwnd, SW_HIDE);
+	if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) {
+		ShowWindow(hwnd, SW_HIDE);
+	}
 }
 
 void WmUser(HWND hwnd) {
@@ -168,11 +171,7 @@ void WmClose(HWND hwnd) {
 }
 
 
-
-
 // ----------------------------------------------------------------------------
-
-
 
 
 void LoadConfiguration(HWND hwnd) {
@@ -214,21 +213,21 @@ void LoadConfiguration(HWND hwnd) {
 }
 
 void SetHotkey(HWND hwnd, const wchar_t *key, int id) {
-	if (wcslen(key) < 5) return;
+	if (wcslen(key) < 5) {
+		return;
+	}
 	UINT flag = 0;
 	if (key[0] == L'1') flag |= MOD_ALT;
 	if (key[1] == L'1') flag |= MOD_CONTROL;
 	if (key[2] == L'1') flag |= MOD_SHIFT;
 	if (key[3] == L'1') flag |= MOD_WIN;
-	if (flag) ::RegisterHotKey(hwnd, id, flag, key[4]);
+	if (flag) {
+		::RegisterHotKey(hwnd, id, flag, key[4]);
+	}
 }
 
 
-
-
 // ----------------------------------------------------------------------------
-
-
 
 
 void ExecuteEdge(HWND hwnd, int area, int index) {
@@ -278,7 +277,9 @@ void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
 			break;
 		}
 	}
-	if (cmd[0] == L'\0') wcscpy_s(cmd, MAX_PATH, path);
+	if (cmd[0] == L'\0') {
+		wcscpy_s(cmd, MAX_PATH, path);
+	}
 	if (wcscmp(cmd, L"{CONFIG}") == 0) {  // Special command {CONFIG}
 		wcscpy_s(cmd, MAX_PATH, IniPath);
 		opt[0] = L'\0';
@@ -288,8 +289,9 @@ void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
 
 void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 	size_t len = wcslen(msg);
-	if (len == 0) return;
-
+	if (len == 0) {
+		return;
+	}
 	wcscpy_s(MsgStr, MAX_LINE, msg);
 	HDC hdc = ::GetDC(hwnd);
 	HFONT dlgFont = win_util::get_default_font(hwnd);
@@ -301,8 +303,10 @@ void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 	::GetPhysicalCursorPos(&p);
 	const int w = font.cx + 10, h = font.cy + 10;
 	const int dpi = ::GetDpiForWindow(hwnd);
-	const int dw = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi), dh = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
-	const int mw = ::GetSystemMetricsForDpi(SM_CXCURSOR, dpi), mh = ::GetSystemMetricsForDpi(SM_CYCURSOR, dpi);
+	const int dw = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
+	const int dh = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
+	const int mw = ::GetSystemMetricsForDpi(SM_CXCURSOR, dpi);
+	const int mh = ::GetSystemMetricsForDpi(SM_CYCURSOR, dpi);
 
 	int l = 0, t = 0;
 	if (corner != -1) {

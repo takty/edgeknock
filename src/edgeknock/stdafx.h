@@ -20,5 +20,4 @@
 #include <memory.h>
 #include <tchar.h>
 
-
 #include "mh.h"

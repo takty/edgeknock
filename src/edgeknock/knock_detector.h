@@ -1,17 +1,13 @@
 /**
- *
  * Knock Detector
  *
  * @author Takuto Yanagida
- * @version 2019-05-02
- *
+ * @version 2024-04-30
  */
-
 
 #pragma once
 #include <chrono>
 using namespace std::chrono;
-
 
 class knock_detector {
 
@@ -23,10 +19,10 @@ class knock_detector {
 	};
 
 	unsigned int _limit_t = 300;
-	int _max_sep = 5;
+	int _max_sep      = 5;
 	int _edge_seps[4] = { 3, 3, 3, 3 };
 	int _edge_ws[4]   = { 4, 4, 4, 4 };
-	int _ne_ws[4] = { 18, 18, 18, 18 };
+	int _ne_ws[4]     = { 18, 18, 18, 18 };
 
 	bool _just_out = false;
 	int _count = 0;
@@ -51,7 +47,7 @@ private:
 	area_index _last_ai       = area_index(NA);
 	area_index _last_knock_ai = area_index(NA);
 
-	const area_index get_area(const int x, const int y, const int cx_screen, const int cy_screen) {
+	const area_index get_area(const int x, const int y, const int cx_screen, const int cy_screen) const {
 		const int mx = cx_screen - 1;
 		const int my = cy_screen - 1;
 

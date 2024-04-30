@@ -18,10 +18,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Japanese (Japan) resources
+// 日本語 (日本) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_JPN)
 LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
+#pragma code_page(932)
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -29,8 +30,8 @@ LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,4,0,0
- PRODUCTVERSION 1,4,0,0
+ FILEVERSION 1,5,0,0
+ PRODUCTVERSION 1,5,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -47,12 +48,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Takuto Yanagida"
             VALUE "FileDescription", "Edgeknock"
-            VALUE "FileVersion", "1.4.0.0"
+            VALUE "FileVersion", "1.5.0.0"
             VALUE "InternalName", "edgeknock.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2019, Takuto Yanagida"
+            VALUE "LegalCopyright", "Copyright (C) 2024, Takuto Yanagida"
             VALUE "OriginalFilename", "edgeknock.exe"
             VALUE "ProductName", "Edgeknock"
-            VALUE "ProductVersion", "1.4.0.0"
+            VALUE "ProductVersion", "1.5.0.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -61,15 +62,16 @@ BEGIN
     END
 END
 
-#endif    // Japanese (Japan) resources
+#endif    // 日本語 (日本) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// English (United States) resources
+// 英語 (米国) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -112,7 +114,7 @@ BEGIN
     IDC_EDGEKNOCK           "EDGEKNOCK"
 END
 
-#endif    // English (United States) resources
+#endif    // 英語 (米国) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

@@ -1,8 +1,6 @@
 // mh.cpp : Defines the exported functions for the DLL application.
-//
 
 #include "stdafx.h"
-
 
 HINSTANCE HInst;
 
@@ -11,7 +9,6 @@ HINSTANCE HInst;
 HHOOK HHook = NULL;
 HWND HWnd = NULL;
 #pragma data_seg()
-
 
 VOID SetModuleHandle(HMODULE hModule) {
 	HInst = hModule;
@@ -38,7 +35,7 @@ __declspec(dllexport) int EndHook() {
 }
 
 __declspec(dllexport) LRESULT CALLBACK HookProc(int code, WPARAM wp, LPARAM lp) {
-	MOUSEHOOKSTRUCT *mhs = (MOUSEHOOKSTRUCT*)lp;
+	MOUSEHOOKSTRUCT* mhs = (MOUSEHOOKSTRUCT*)lp;
 
 	if (code < 0) {
 		return CallNextHookEx(HHook, code, wp, lp);

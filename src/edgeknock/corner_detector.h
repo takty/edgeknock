@@ -1,22 +1,18 @@
 /**
- *
  * Corner Detector
  *
  * @author Takuto Yanagida
- * @version 2019-05-01
- *
+ * @version 2024-04-30
  */
 
-
 #pragma once
-
 
 class corner_detector {
 
 	int _width = 32;
 	int _last_corner = -1;
 
-	const int get_area(const int x, const int y, const int cx_screen, const int cy_screen) {
+	const int get_area(const int x, const int y, const int cx_screen, const int cy_screen) const {
 		const int mx = cx_screen - 1;
 		const int my = cy_screen - 1;
 
