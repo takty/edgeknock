@@ -30,8 +30,8 @@ LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,5,0,0
- PRODUCTVERSION 1,5,0,0
+ FILEVERSION 1,6,0,0
+ PRODUCTVERSION 1,6,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -48,12 +48,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Takuto Yanagida"
             VALUE "FileDescription", "Edgeknock"
-            VALUE "FileVersion", "1.5.0.0"
+            VALUE "FileVersion", "1.6.0.0"
             VALUE "InternalName", "edgeknock.exe"
             VALUE "LegalCopyright", "Copyright (C) 2024, Takuto Yanagida"
             VALUE "OriginalFilename", "edgeknock.exe"
             VALUE "ProductName", "Edgeknock"
-            VALUE "ProductVersion", "1.5.0.0"
+            VALUE "ProductVersion", "1.6.0.0"
         END
     END
     BLOCK "VarFileInfo"

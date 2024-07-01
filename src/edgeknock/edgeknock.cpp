@@ -2,8 +2,11 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2024-04-30
+ * @version 2024-06-30
  */
+
+#include <chrono>
+using namespace std::chrono;
 
 #include "stdafx.h"
 #include "edgeknock.h"
@@ -23,6 +26,9 @@ wchar_t IniPath[MAX_LINE];
 bool FullScreenCheck = true;
 wchar_t MsgStr[MAX_LINE];
 int MsgTimeLeft = 0;
+
+int last_x = -1;
+int last_y = -1;
 
 ATOM InitApplication(HINSTANCE);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -58,11 +64,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instanc
 	if (!hWnd) return FALSE;
 
 	MSG msg;
-    while (::GetMessage(&msg, nullptr, 0, 0)) {
-        ::TranslateMessage(&msg);
-        ::DispatchMessage(&msg);
-    }
-    return (int) msg.wParam;
+	while (::GetMessage(&msg, nullptr, 0, 0)) {
+		::TranslateMessage(&msg);
+		::DispatchMessage(&msg);
+	}
+	return (int)msg.wParam;
 }
 
 ATOM InitApplication(HINSTANCE hinstance) {
@@ -103,7 +109,7 @@ void WmCreate(HWND hwnd) {
 	wcscat_s(IniPath, MAX_PATH, L"ini");
 
 	LoadConfiguration(hwnd);
-	win_util::check_module_directory(hwnd, WM_USER);
+	win_util::watch_module_directory(hwnd, WM_USER);
 	::SetTimer(hwnd, 1, 100, nullptr);
 	SetOwnerWindow(hwnd);  // mh.dll
 	SetHook();  // mh.dll
@@ -128,19 +134,25 @@ void WmPaint(HWND hwnd) {
 }
 
 void WmMouseMove(HWND hwnd, int x, int y) {
-	const int dpi = ::GetDpiForWindow(hwnd);
-	const int cx = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
-	const int cy = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
+	last_x = x;
+	last_y = y;
 
-	int corner = Cd.detect(x, y, cx, cy);
+	const int dpi = ::GetDpiForWindow(hwnd);
+	const int cx  = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
+	const int cy  = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
+
+	auto t = system_clock::now();
+
+	int corner = Cd.detect(t, x, y, cx, cy);
 	if (corner != -1) {
 		ExecuteCorner(hwnd, corner);
 		return;
 	}
-	knock_detector::area_index r = Kd.detect(x, y, cx, cy);
+	knock_detector::area_index r = Kd.detect(t, x, y, cx, cy);
 	if (knock_detector::KNOCK <= r.area) {
 		ExecuteEdge(hwnd, r.area, r.index);
-	} else if (r.area == knock_detector::READY) {
+	}
+	else if (r.area == knock_detector::READY) {
 		if (IsWindowVisible(hwnd)) {
 			ShowWindow(hwnd, SW_HIDE);
 		}
@@ -155,6 +167,7 @@ void WmHotkey(HWND hwnd, int id) {
 }
 
 void WmTimer(HWND hwnd) {
+	WmMouseMove(hwnd, last_x, last_y);
 	if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) {
 		ShowWindow(hwnd, SW_HIDE);
 	}
@@ -200,8 +213,10 @@ void LoadConfiguration(HWND hwnd) {
 	Kd.set_no_effect_edge_widthes(neEdgeWL, neEdgeWR, neEdgeWT, neEdgeWB);
 
 	int cornerSize = ::GetPrivateProfileInt(L"Setting", L"CornerSize", 32, IniPath);
+	int delayTime = ::GetPrivateProfileInt(L"Setting", L"DelayTime", 200, IniPath);
 
 	Cd.set_corner_size(cornerSize);
+	Cd.set_delay_time(delayTime);
 
 	for (int i = 0; i < MAX_HOTKEY; ++i) {
 		wchar_t key[8], hotkey[6];
@@ -212,7 +227,7 @@ void LoadConfiguration(HWND hwnd) {
 	}
 }
 
-void SetHotkey(HWND hwnd, const wchar_t *key, int id) {
+void SetHotkey(HWND hwnd, const wchar_t* key, int id) {
 	if (wcslen(key) < 5) {
 		return;
 	}
@@ -287,7 +302,7 @@ void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
 	path::absolute_path(cmd);
 }
 
-void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
+void ShowMessage(HWND hwnd, const wchar_t* msg, int corner, int area) {
 	size_t len = wcslen(msg);
 	if (len == 0) {
 		return;
@@ -297,7 +312,7 @@ void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 	HFONT dlgFont = win_util::get_default_font(hwnd);
 	::SelectObject(hdc, dlgFont);
 	SIZE font;
-	::GetTextExtentPoint32(hdc, msg, (int) len, &font);
+	::GetTextExtentPoint32(hdc, msg, (int)len, &font);
 
 	POINT p;
 	::GetPhysicalCursorPos(&p);
@@ -316,14 +331,16 @@ void ShowMessage(HWND hwnd, const wchar_t *msg, int corner, int area) {
 		case 2: l = dw - w - mw; t = dh - h - mh; break;
 		case 3: l = mw;          t = dh - h - mh; break;
 		}
-	} else if (area != -1) {
+	}
+	else if (area != -1) {
 		switch (area) {
 		case 0: l = 0;      t = (p.y > dh / 2) ? (p.y - h - mh) : (p.y + mh); break;
 		case 1: l = dw - w; t = (p.y > dh / 2) ? (p.y - h - mh) : (p.y + mh); break;
 		case 2: l = (p.x > dw / 2) ? (p.x - w - mw) : (p.x + mw); t = 0;      break;
 		case 3: l = (p.x > dw / 2) ? (p.x - w - mw) : (p.x + mw); t = dh - h; break;
 		}
-	} else {
+	}
+	else {
 		l = (dw - w) / 2;
 		t = (dh - h) / 2;
 	}

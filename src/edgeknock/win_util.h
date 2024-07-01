@@ -2,7 +2,7 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2024-04-30
+ * @version 2024-07-01
  */
 
 #pragma once
@@ -11,37 +11,39 @@
 
 class win_util {
 
-	static DWORD WINAPI check_module_directory_thread(LPVOID ps) {
-		HWND hwnd = (HWND) ((long long int*) ps)[0];
+	static DWORD WINAPI watch_module_directory_thread(LPVOID ps) {
+		HWND hwnd = (HWND)((long long int*) ps)[0];
 		UINT msg = (UINT)((long long int*)ps)[1];
+
 		wchar_t path[MAX_PATH];
 		::GetModuleFileName(NULL, path, MAX_PATH - 1);
 		path::parent_dest(path);
 
 		// Observe ini file writing
-		HANDLE handle = ::FindFirstChangeNotification(path, FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
-		if (handle == INVALID_HANDLE_VALUE) return (DWORD)-1;
+		HANDLE h = ::FindFirstChangeNotification(path, FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
+		if (h == INVALID_HANDLE_VALUE) return (DWORD)-1;
 
 		// Wait until changing
 		while (true) {
-			if (::WaitForSingleObject(handle, INFINITE) == WAIT_OBJECT_0) {
+			if (::WaitForSingleObject(h, INFINITE) == WAIT_OBJECT_0) {
 				::SendMessage(hwnd, msg, 0, 0);  // Notify changing
-			} else {
+			}
+			else {
 				break;
 			}
 			// Wait again
-			if (!::FindNextChangeNotification(handle)) break;
+			if (!::FindNextChangeNotification(h)) break;
 		}
-		::FindCloseChangeNotification(handle);
+		::FindCloseChangeNotification(h);
 		return 0;
 	}
 
 public:
 
-	static void check_module_directory(HWND hwnd, UINT msg) {
-		DWORD thread_id;
+	static void watch_module_directory(HWND hwnd, UINT msg) {
+		DWORD t_id;
 		static long long int ps[] = { (long long int) hwnd, msg };
-		::CreateThread(NULL, 0, win_util::check_module_directory_thread, ps, 0, &thread_id);
+		::CreateThread(NULL, 0, win_util::watch_module_directory_thread, ps, 0, &t_id);
 	}
 
 	static void set_foreground_window(HWND hWnd) {

@@ -11,7 +11,7 @@
 
 class shell_executer {
 
-	static HANDLE thread_handle;
+	static HANDLE h_thread;
 
 	struct file_param {
 		wchar_t file[MAX_PATH], param[MAX_PATH];
@@ -52,10 +52,10 @@ public:
 		wcscpy_s(fp->file, MAX_PATH, file);
 		wcscpy_s(fp->param, MAX_PATH, param);
 
-		thread_handle = ::CreateThread(nullptr, 0, shell_executer::thread_proc, fp, 0, nullptr);
-		if (thread_handle) {
-			::CloseHandle(thread_handle);  // Release handle
-			thread_handle = nullptr;
+		h_thread = ::CreateThread(nullptr, 0, shell_executer::thread_proc, fp, 0, nullptr);
+		if (h_thread) {
+			::CloseHandle(h_thread);  // Release handle
+			h_thread = nullptr;
 		}
 		else {
 			::HeapFree(::GetProcessHeap(), 0, fp);
@@ -63,9 +63,9 @@ public:
 	}
 
 	static bool is_executing() {
-		return thread_handle != nullptr;
+		return h_thread != nullptr;
 	}
 
 };
 
-HANDLE shell_executer::thread_handle;
+HANDLE shell_executer::h_thread;
