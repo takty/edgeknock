@@ -2,10 +2,11 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2024-07-01
+ * @version 2024-07-07
  */
 
 #pragma once
+#include <utility>
 #include <windows.h>
 #include "path.h"
 
@@ -84,6 +85,54 @@ public:
 		const int dpi = ::GetDpiForWindow(hwnd);
 		::SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE, dpi);
 		return ::CreateFontIndirect(&(ncm.lfMessageFont));
+	}
+
+	static SIZE get_text_size(HWND hwnd, const wchar_t* msg, size_t len) {
+		HDC hdc = ::GetDC(hwnd);
+		HFONT dlgFont = win_util::get_default_font(hwnd);
+		::SelectObject(hdc, dlgFont);
+		SIZE font;
+		::GetTextExtentPoint32(hdc, msg, (int)len, &font);
+		::DeleteObject(dlgFont);
+		::ReleaseDC(hwnd, hdc);
+		return font;
+	}
+
+	static bool is_point_in_monitor(HMONITOR hmon, POINT pt) {
+		MONITORINFOEX mi{};
+		mi.cbSize = sizeof(MONITORINFOEX);
+		if (GetMonitorInfo(hmon, &mi)) {
+			return (pt.x >= mi.rcMonitor.left && pt.x < mi.rcMonitor.right &&
+				pt.y >= mi.rcMonitor.top && pt.y < mi.rcMonitor.bottom);
+		}
+		return false;
+	}
+
+	static POINT get_physical_point_from_logical(HMONITOR hmon, POINT logical) {
+		POINT physical = logical;
+		UINT dpi_x, dpi_y;
+		if (GetDpiForMonitor(hmon, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y) == S_OK) {
+			physical.x = MulDiv(logical.x, dpi_x, 96);
+			physical.y = MulDiv(logical.y, dpi_y, 96);
+		}
+		return physical;
+	}
+
+	static RECT get_monitor_rect(HMONITOR hmon) {
+		MONITORINFOEX mi{};
+		mi.cbSize = sizeof(MONITORINFOEX);
+		if (!::GetMonitorInfo(hmon, &mi)) {
+			return RECT{};
+		}
+		return mi.rcMonitor;
+	}
+
+	static std::pair<UINT, UINT> get_monitor_dpi(HMONITOR hmon) {
+		UINT dpi_x, dpi_y;
+		if (GetDpiForMonitor(hmon, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y) == S_OK) {
+			return { dpi_x, dpi_y };
+		}
+		return { 96, 96 };
 	}
 
 };

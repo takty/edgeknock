@@ -2,7 +2,7 @@
  * Knock Detector
  *
  * @author Takuto Yanagida
- * @version 2024-07-01
+ * @version 2024-07-04
  */
 
 #pragma once
@@ -85,21 +85,21 @@ public:
 		_max_sep = s;
 	}
 
-	void set_edge_separations(int left, int right, int top, int bottom) {
+	void set_edge_separations(const int left, const int right, const int top, const int bottom) {
 		_edge_seps[0] = left;
 		_edge_seps[1] = right;
 		_edge_seps[2] = top;
 		_edge_seps[3] = bottom;
 	}
 
-	void set_edge_widthes(int left, int right, int top, int bottom) {
+	void set_edge_widths(const int left, const int right, const int top, const int bottom) {
 		_edge_ws[0] = left;
 		_edge_ws[1] = right;
 		_edge_ws[2] = top;
 		_edge_ws[3] = bottom;
 	}
 
-	void set_no_effect_edge_widthes(int left, int right, int top, int bottom) {
+	void set_no_effect_edge_widths(const int left, const int right, const int top, const int bottom) {
 		_ne_ws[0] = left;
 		_ne_ws[1] = right;
 		_ne_ws[2] = top;
