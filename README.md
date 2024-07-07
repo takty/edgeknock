@@ -1,6 +1,8 @@
 # Edgeknock
 
-v1.6 (2024-07-07)
+[Japanese Ver.](https://github.com/takty/edgeknock/blob/main/README.ja.md)
+
+v1.60 (2024-07-07)
 
 - Developed by: Takuto Yanagida
 - Platforms: Windows 11
