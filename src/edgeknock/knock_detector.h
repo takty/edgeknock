@@ -2,7 +2,7 @@
  * Knock Detector
  *
  * @author Takuto Yanagida
- * @version 2024-07-04
+ * @version 2025-11-04
  */
 
 #pragma once
@@ -38,8 +38,8 @@ public:
 		int area;
 		int index;
 
-		area_index(int a, int i) : area(a), index(i) {}
-		area_index(int a) : area(a), index(-1) {}
+		area_index(int a, int i) noexcept : area(a), index(i) {}
+		area_index(int a) noexcept : area(a), index(-1) {}
 	};
 
 private:
@@ -47,7 +47,7 @@ private:
 	area_index _last_ai = area_index(NA);
 	area_index _last_knock_ai = area_index(NA);
 
-	const area_index get_area(const int x, const int y, const int s_cx, const int s_cy) const {
+	const area_index get_area(const int x, const int y, const int s_cx, const int s_cy) const noexcept {
 		const int mx = s_cx - 1;
 		const int my = s_cy - 1;
 
@@ -71,42 +71,40 @@ private:
 
 public:
 
-	knock_detector() {
-	}
+	knock_detector() noexcept = default;
 
-	~knock_detector() {
-	}
+	~knock_detector() = default;
 
-	void set_time_limit(const int ms) {
+	void set_time_limit(const int ms) noexcept {
 		_limit_t = ms;
 	}
 
-	void set_max_separation(const int s) {
+	void set_max_separation(const int s) noexcept {
 		_max_sep = s;
 	}
 
-	void set_edge_separations(const int left, const int right, const int top, const int bottom) {
+	void set_edge_separations(const int left, const int right, const int top, const int bottom) noexcept {
 		_edge_seps[0] = left;
 		_edge_seps[1] = right;
 		_edge_seps[2] = top;
 		_edge_seps[3] = bottom;
 	}
 
-	void set_edge_widths(const int left, const int right, const int top, const int bottom) {
+	void set_edge_widths(const int left, const int right, const int top, const int bottom) noexcept {
 		_edge_ws[0] = left;
 		_edge_ws[1] = right;
 		_edge_ws[2] = top;
 		_edge_ws[3] = bottom;
 	}
 
-	void set_no_effect_edge_widths(const int left, const int right, const int top, const int bottom) {
+	void set_no_effect_edge_widths(const int left, const int right, const int top, const int bottom) noexcept {
 		_ne_ws[0] = left;
 		_ne_ws[1] = right;
 		_ne_ws[2] = top;
 		_ne_ws[3] = bottom;
 	}
 
-	const area_index detect(const system_clock::time_point t, const int x, const int y, const int s_cx, const int s_cy) {
+	const area_index detect(const system_clock::time_point t, const int x, const int y, const int s_cx, const int s_cy) noexcept {
 		const area_index ai = get_area(x, y, s_cx, s_cy);
 		if (_last_ai.area == -2 && -2 < ai.area) {  // Get out of Normal Area
 			_out_t = _last_t;

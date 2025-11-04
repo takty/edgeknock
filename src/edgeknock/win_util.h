@@ -2,7 +2,7 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2024-07-07
+ * @version 2025-11-04
  */
 
 #pragma once
@@ -12,7 +12,7 @@
 
 class win_util {
 
-	static DWORD WINAPI watch_module_directory_thread(LPVOID ps) {
+	static DWORD WINAPI watch_module_directory_thread(LPVOID ps) noexcept {
 		HWND hwnd = (HWND)((long long int*) ps)[0];
 		UINT msg = (UINT)((long long int*)ps)[1];
 
@@ -41,15 +41,15 @@ class win_util {
 
 public:
 
-	static void watch_module_directory(HWND hwnd, UINT msg) {
-		DWORD t_id;
+	static void watch_module_directory(HWND hwnd, UINT msg) noexcept {
+		DWORD t_id{};
 		static long long int ps[] = { (long long int) hwnd, msg };
 		::CreateThread(NULL, 0, win_util::watch_module_directory_thread, ps, 0, &t_id);
 	}
 
-	static void set_foreground_window(HWND hWnd) {
-		int win_id = ::GetWindowThreadProcessId(GetForegroundWindow(), NULL);
-		int tar_id = ::GetWindowThreadProcessId(hWnd, NULL);
+	static void set_foreground_window(HWND hWnd) noexcept {
+		const int win_id = ::GetWindowThreadProcessId(GetForegroundWindow(), NULL);
+		const int tar_id = ::GetWindowThreadProcessId(hWnd, NULL);
 		DWORD t = 0;
 
 		::AttachThreadInput(tar_id, win_id, TRUE);
@@ -60,8 +60,8 @@ public:
 		::AttachThreadInput(tar_id, win_id, FALSE);
 	}
 
-	static bool is_foreground_window_fullscreen(void) {
-		RECT s;
+	static bool is_foreground_window_fullscreen(void) noexcept {
+		RECT s{};
 		HWND fw = ::GetForegroundWindow();
 		::GetWindowRect(fw, &s);
 
@@ -79,15 +79,15 @@ public:
 		return false;
 	}
 
-	static HFONT get_default_font(HWND hwnd) {
+	static HFONT get_default_font(HWND hwnd) noexcept {
 		NONCLIENTMETRICS ncm{};
 		ncm.cbSize = sizeof(ncm);
 		const int dpi = ::GetDpiForWindow(hwnd);
-		::SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE, dpi);
+		::SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, ncm.cbSize, &ncm, 0, dpi);
 		return ::CreateFontIndirect(&(ncm.lfMessageFont));
 	}
 
-	static SIZE get_text_size(HWND hwnd, const wchar_t* msg, size_t len) {
+	static SIZE get_text_size(HWND hwnd, const wchar_t* msg, size_t len) noexcept {
 		HDC hdc = ::GetDC(hwnd);
 		HFONT dlgFont = win_util::get_default_font(hwnd);
 		::SelectObject(hdc, dlgFont);
@@ -98,7 +98,7 @@ public:
 		return font;
 	}
 
-	static bool is_point_in_monitor(HMONITOR hmon, POINT pt) {
+	static bool is_point_in_monitor(HMONITOR hmon, POINT pt) noexcept {
 		MONITORINFOEX mi{};
 		mi.cbSize = sizeof(MONITORINFOEX);
 		if (GetMonitorInfo(hmon, &mi)) {
@@ -108,7 +108,7 @@ public:
 		return false;
 	}
 
-	static POINT get_physical_point_from_logical(HMONITOR hmon, POINT logical) {
+	static POINT get_physical_point_from_logical(HMONITOR hmon, POINT logical) noexcept {
 		POINT physical = logical;
 		UINT dpi_x, dpi_y;
 		if (GetDpiForMonitor(hmon, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y) == S_OK) {
@@ -118,7 +118,7 @@ public:
 		return physical;
 	}
 
-	static RECT get_monitor_rect(HMONITOR hmon) {
+	static RECT get_monitor_rect(HMONITOR hmon) noexcept {
 		MONITORINFOEX mi{};
 		mi.cbSize = sizeof(MONITORINFOEX);
 		if (!::GetMonitorInfo(hmon, &mi)) {
@@ -127,7 +127,7 @@ public:
 		return mi.rcMonitor;
 	}
 
-	static std::pair<UINT, UINT> get_monitor_dpi(HMONITOR hmon) {
+	static std::pair<UINT, UINT> get_monitor_dpi(HMONITOR hmon) noexcept {
 		UINT dpi_x, dpi_y;
 		if (GetDpiForMonitor(hmon, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y) == S_OK) {
 			return { dpi_x, dpi_y };

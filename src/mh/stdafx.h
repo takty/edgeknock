@@ -13,4 +13,4 @@
 
 // Additional headers
 #include "mh.h"
-VOID SetModuleHandle(HMODULE hModule);
+VOID SetModuleHandle(HMODULE hModule) noexcept;

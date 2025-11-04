@@ -2,7 +2,7 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2024-07-07
+ * @version 2025-11-04
  */
 
 #include <chrono>
@@ -30,41 +30,41 @@ int MsgTimeLeft = 0;
 int last_x = -1;
 int last_y = -1;
 
-ATOM InitApplication(HINSTANCE);
+ATOM InitApplication(HINSTANCE) noexcept;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void WmCreate(HWND);
-void WmPaint(HWND);
-void WmMouseMove(HWND, int, int);
+void WmPaint(HWND) noexcept;
+void WmMouseMove(HWND, int, int) noexcept;
 void WmHotkey(HWND, int);
-void WmTimer(HWND);
+void WmTimer(HWND) noexcept;
 void WmUser(HWND);
-void WmClose(HWND);
+void WmClose(HWND) noexcept;
 
-void LoadConfiguration(HWND hwnd);
-void SetHotkey(HWND hwnd, const wchar_t* key, int id);
+void LoadConfiguration(HWND hwnd) noexcept;
+void SetHotkey(HWND hwnd, const wchar_t* key, int id) noexcept;
 
 void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const int cx, const int cy);
 void ExecuteEdge(HMONITOR hmon, HWND hwnd, int area, int index);
 void ExecuteCorner(HMONITOR hmon, HWND hwnd, int corner);
 void ExecuteHotkey(HMONITOR hmon, HWND hwnd, int id);
 void Execute(HMONITOR hmon, HWND hwnd, const wchar_t path[], int corner, int area);
-void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]);
+void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) noexcept;
 void ShowMessage(HMONITOR hmon, HWND hwnd, const wchar_t* msg, int corner = -1, int area = -1);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instance, _In_ LPWSTR, _In_ int) {
-	::CreateMutex(nullptr, FALSE, WIN_CLS);
+	::CreateMutex(nullptr, FALSE, &WIN_CLS[0]);
 
 	if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-		HWND handle = ::FindWindow(WIN_CLS, nullptr);
+		const HWND handle = ::FindWindow(&WIN_CLS[0], nullptr);
 		if (handle) {
 			::SendMessage(handle, WM_CLOSE, 0, 0);
 		}
-		return FALSE;
+		return 0;
 	}
 	InitApplication(hinstance);
-	HWND hWnd = ::CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, WIN_CLS, L"", WS_BORDER | WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hinstance, nullptr);
+	const HWND hWnd = ::CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, WIN_CLS, L"", WS_BORDER | WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hinstance, nullptr);
 	if (!hWnd) {
-		return FALSE;
+		return 0;
 	}
 	MSG msg;
 	while (::GetMessage(&msg, nullptr, 0, 0)) {
@@ -74,7 +74,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instanc
 	return (int)msg.wParam;
 }
 
-ATOM InitApplication(HINSTANCE hinstance) {
+ATOM InitApplication(HINSTANCE hinstance) noexcept {
 	WNDCLASSEXW wcex{};
 	wcex.cbSize         = sizeof(WNDCLASSEX);
 	wcex.style          = CS_HREDRAW | CS_VREDRAW;
@@ -86,7 +86,7 @@ ATOM InitApplication(HINSTANCE hinstance) {
 	wcex.hCursor        = nullptr;
 	wcex.hbrBackground  = (HBRUSH)(COLOR_INFOBK + 1);
 	wcex.lpszMenuName   = nullptr;
-	wcex.lpszClassName  = WIN_CLS;
+	wcex.lpszClassName  = &WIN_CLS[0];
 	wcex.hIconSm        = nullptr;
 	return ::RegisterClassExW(&wcex);
 }
@@ -121,7 +121,7 @@ void WmCreate(HWND hwnd) {
 	ShowMessage(hmon, hwnd, L"Edgeknock");
 }
 
-void WmPaint(HWND hwnd) {
+void WmPaint(HWND hwnd) noexcept {
 	PAINTSTRUCT paint;
 	HDC hdc = ::BeginPaint(hwnd, &paint);
 
@@ -143,25 +143,25 @@ typedef struct tagWPT {
 	LONG y;
 } WPT;
 
-void WmMouseMove(HWND hwnd, int x, int y) {
+void WmMouseMove(HWND hwnd, int x, int y) noexcept {
 	last_x = x;
 	last_y = y;
 
 	WPT logical{ hwnd, x, y };
 
 	::EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hmon, HDC, LPRECT, LPARAM lParam) -> BOOL {
-		WPT* wpt  = reinterpret_cast<WPT*>(lParam);
-		HWND hwnd = wpt->hwnd;
-		POINT pt  = { wpt->x, wpt->y };
+		const WPT* wpt  = reinterpret_cast<WPT*>(lParam);
+		const HWND hwnd = wpt->hwnd;
+		const POINT pt  = { wpt->x, wpt->y };
 
 		if (win_util::is_point_in_monitor(hmon, pt)) {
 			MONITORINFOEX mi{};
 			mi.cbSize = sizeof(MONITORINFOEX);
 			if (::GetMonitorInfo(hmon, &mi)) {
-				int x  = pt.x - mi.rcMonitor.left;
-				int y  = pt.y - mi.rcMonitor.top;
-				int cx = mi.rcMonitor.right - mi.rcMonitor.left;
-				int cy = mi.rcMonitor.bottom - mi.rcMonitor.top;
+				const int x  = pt.x - mi.rcMonitor.left;
+				const int y  = pt.y - mi.rcMonitor.top;
+				const int cx = mi.rcMonitor.right - mi.rcMonitor.left;
+				const int cy = mi.rcMonitor.bottom - mi.rcMonitor.top;
 				RecognizeGesture(hmon, hwnd, x, y, cx, cy);
 			}
 			return FALSE;
@@ -178,7 +178,7 @@ void WmHotkey(HWND hwnd, int id) {
 	ExecuteHotkey(hmon, hwnd, id);
 }
 
-void WmTimer(HWND hwnd) {
+void WmTimer(HWND hwnd) noexcept {
 	WmMouseMove(hwnd, last_x, last_y);
 	if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) {
 		ShowWindow(hwnd, SW_HIDE);
@@ -191,7 +191,7 @@ void WmUser(HWND hwnd) {
 	LoadConfiguration(hwnd);
 }
 
-void WmClose(HWND hwnd) {
+void WmClose(HWND hwnd) noexcept {
 	EndHook();  // mh.dll
 	::DestroyWindow(hwnd);
 }
@@ -200,33 +200,33 @@ void WmClose(HWND hwnd) {
 // ----------------------------------------------------------------------------
 
 
-void LoadConfiguration(HWND hwnd) {
+void LoadConfiguration(HWND hwnd) noexcept {
 	FullScreenCheck = (bool) ::GetPrivateProfileInt(L"Setting", L"FullScreenCheck", FullScreenCheck, IniPath);
 
-	int limitTime = ::GetPrivateProfileInt(L"Setting", L"LimitTime", 300, IniPath);
-	int edgeW     = ::GetPrivateProfileInt(L"Setting", L"EdgeWidth", 4, IniPath);
-	int neEdgeW   = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidth", 18, IniPath);
-	int sepL      = ::GetPrivateProfileInt(L"Setting", L"Left", 3, IniPath);
-	int sepR      = ::GetPrivateProfileInt(L"Setting", L"Right", 3, IniPath);
-	int sepT      = ::GetPrivateProfileInt(L"Setting", L"Top", 3, IniPath);
-	int sepB      = ::GetPrivateProfileInt(L"Setting", L"Bottom", 3, IniPath);
+	const int limitTime = ::GetPrivateProfileInt(L"Setting", L"LimitTime", 300, IniPath);
+	const int edgeW     = ::GetPrivateProfileInt(L"Setting", L"EdgeWidth", 4, IniPath);
+	const int neEdgeW   = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidth", 18, IniPath);
+	const int sepL      = ::GetPrivateProfileInt(L"Setting", L"Left", 3, IniPath);
+	const int sepR      = ::GetPrivateProfileInt(L"Setting", L"Right", 3, IniPath);
+	const int sepT      = ::GetPrivateProfileInt(L"Setting", L"Top", 3, IniPath);
+	const int sepB      = ::GetPrivateProfileInt(L"Setting", L"Bottom", 3, IniPath);
 
-	int edgeWL   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthLeft", edgeW, IniPath);
-	int edgeWR   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthRight", edgeW, IniPath);
-	int edgeWT   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthTop", edgeW, IniPath);
-	int edgeWB   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthBottom", edgeW, IniPath);
-	int neEdgeWL = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthLeft", neEdgeW, IniPath);
-	int neEdgeWR = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthRight", neEdgeW, IniPath);
-	int neEdgeWT = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthTop", neEdgeW, IniPath);
-	int neEdgeWB = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthBottom", neEdgeW, IniPath);
+	const int edgeWL   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthLeft", edgeW, IniPath);
+	const int edgeWR   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthRight", edgeW, IniPath);
+	const int edgeWT   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthTop", edgeW, IniPath);
+	const int edgeWB   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthBottom", edgeW, IniPath);
+	const int neEdgeWL = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthLeft", neEdgeW, IniPath);
+	const int neEdgeWR = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthRight", neEdgeW, IniPath);
+	const int neEdgeWT = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthTop", neEdgeW, IniPath);
+	const int neEdgeWB = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthBottom", neEdgeW, IniPath);
 
 	Kd.set_time_limit(limitTime);
 	Kd.set_edge_separations(sepL, sepR, sepT, sepB);
 	Kd.set_edge_widths(edgeWL, edgeWR, edgeWT, edgeWB);
 	Kd.set_no_effect_edge_widths(neEdgeWL, neEdgeWR, neEdgeWT, neEdgeWB);
 
-	int cornerSize = ::GetPrivateProfileInt(L"Setting", L"CornerSize", 8, IniPath);
-	int delayTime  = ::GetPrivateProfileInt(L"Setting", L"DelayTime", 200, IniPath);
+	const int cornerSize = ::GetPrivateProfileInt(L"Setting", L"CornerSize", 8, IniPath);
+	const int delayTime  = ::GetPrivateProfileInt(L"Setting", L"DelayTime", 200, IniPath);
 
 	Cd.set_corner_size(cornerSize);
 	Cd.set_delay_time(delayTime);
@@ -240,7 +240,7 @@ void LoadConfiguration(HWND hwnd) {
 	}
 }
 
-void SetHotkey(HWND hwnd, const wchar_t* key, int id) {
+void SetHotkey(HWND hwnd, const wchar_t* key, int id) noexcept {
 	if (wcslen(key) < 5) {
 		return;
 	}
@@ -259,14 +259,14 @@ void SetHotkey(HWND hwnd, const wchar_t* key, int id) {
 
 
 void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const int scr_w, const int scr_h) {
-	auto t = system_clock::now();
+	const auto t = system_clock::now();
 
-	int corner = Cd.detect(t, x, y, scr_w, scr_h);
+	const int corner = Cd.detect(t, x, y, scr_w, scr_h);
 	if (corner != -1) {
 		ExecuteCorner(hmon, hwnd, corner);
 		return;
 	}
-	knock_detector::area_index r = Kd.detect(t, x, y, scr_w, scr_h);
+	const knock_detector::area_index r = Kd.detect(t, x, y, scr_w, scr_h);
 	if (knock_detector::KNOCK <= r.area) {
 		ExecuteEdge(hmon, hwnd, r.area, r.index);
 	}
@@ -278,8 +278,9 @@ void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const 
 }
 
 void ExecuteEdge(HMONITOR hmon, HWND hwnd, int area, int index) {
+	const wchar_t sec[][7] = { L"Left", L"Right", L"Top", L"Bottom" };
 	wchar_t path[MAX_LINE];
-	wchar_t key[8], sec[][7] = { L"Left", L"Right", L"Top", L"Bottom" };
+	wchar_t key[8];
 	wsprintf(key, L"Path%d", index + 1);
 	::GetPrivateProfileString(sec[area], key, L"", path, MAX_LINE, IniPath);
 	Execute(hmon, hwnd, path, -1, area);
@@ -315,11 +316,11 @@ void Execute(HMONITOR hmon, HWND hwnd, const wchar_t path[], int corner, int are
 	shell_executer::execute(cmd, opt);
 }
 
-void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
+void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) noexcept {
 	cmd[0] = opt[0] = L'\0';
 	for (const wchar_t* c = &path[0]; *c != L'\0'; ++c) {
 		if (*c == '|') {
-			LPWSTR r = lstrcpyn(cmd, path, (int)(c - &path[0] + 1));  // Increase one for \0
+			const LPWSTR r = lstrcpyn(cmd, path, (int)(c - &path[0] + 1));  // Increase one for \0
 			wcscpy_s(opt, MAX_PATH, c + 1);
 			break;
 		}
@@ -335,22 +336,22 @@ void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) {
 }
 
 void ShowMessage(HMONITOR hmon, HWND hwnd, const wchar_t* msg, int corner, int area) {
-	size_t len = wcslen(msg);
+	const size_t len = wcslen(msg);
 	if (len == 0) {
 		return;
 	}
-	RECT mr = win_util::get_monitor_rect(hmon);
+	const RECT mr = win_util::get_monitor_rect(hmon);
 	::MoveWindow(hwnd, mr.left, mr.top, 0, 0, FALSE);
 
-	SIZE font = win_util::get_text_size(hwnd, msg, len);
+	const SIZE font = win_util::get_text_size(hwnd, msg, len);
 	const int w = font.cx + 10, h = font.cy + 10;
 
 	POINT p;
 	::GetPhysicalCursorPos(&p);
 	p.x = p.x - mr.left;
 	p.y = p.y - mr.top;
-	int scr_w = mr.right - mr.left;
-	int scr_h = mr.bottom - mr.top;
+	const int scr_w = mr.right - mr.left;
+	const int scr_h = mr.bottom - mr.top;
 
 	auto [dpi_x, dpi_y] = win_util::get_monitor_dpi(hmon);
 	const int off_x = ::GetSystemMetricsForDpi(SM_CXCURSOR, dpi_x);

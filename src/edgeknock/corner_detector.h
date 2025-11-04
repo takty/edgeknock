@@ -2,7 +2,7 @@
  * Corner Detector
  *
  * @author Takuto Yanagida
- * @version 2024-07-01
+ * @version 2025-11-04
  */
 
 #pragma once
@@ -18,7 +18,7 @@ class corner_detector {
 	int _last_c = -1;
 	int _state  = 0;
 
-	const int get_area(const int x, const int y, const int s_cx, const int s_cy) const {
+	const int get_area(const int x, const int y, const int s_cx, const int s_cy) const noexcept {
 		const int mx = s_cx - 1;
 		const int my = s_cy - 1;
 
@@ -49,26 +49,26 @@ class corner_detector {
 		return -1;
 	}
 
-	const bool in_range(const int v, const int min, const int max) const {
+	const bool in_range(const int v, const int min, const int max) const noexcept {
 		return (min <= v && v <= max);
 	}
 
 public:
 
-	corner_detector() {}
+	corner_detector() noexcept = default;
 
-	~corner_detector() {}
+	~corner_detector() = default;
 
-	void set_corner_size(const int s) {
+	void set_corner_size(const int s) noexcept {
 		_s = s;
 	}
 
-	void set_delay_time(const int ms) {
+	void set_delay_time(const int ms) noexcept {
 		_d = ms;
 	}
 
-	int detect(const system_clock::time_point t, const int x, const int y, const int s_cx, const int s_cy) {
-		int c = get_area(x, y, s_cx, s_cy);
+	int detect(const system_clock::time_point t, const int x, const int y, const int s_cx, const int s_cy) noexcept {
+		const int c = get_area(x, y, s_cx, s_cy);
 
 		if (_last_c != c) {
 			_last_c = c;

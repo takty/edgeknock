@@ -10,7 +10,7 @@ HHOOK HHook = NULL;
 HWND HWnd = NULL;
 #pragma data_seg()
 
-VOID SetModuleHandle(HMODULE hModule) {
+VOID SetModuleHandle(HMODULE hModule) noexcept {
 	HInst = hModule;
 }
 

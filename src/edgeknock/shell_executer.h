@@ -2,7 +2,7 @@
  * Shell Executer
  *
  * @author Takuto Yanagida
- * @version 2024-04-30
+ * @version 2025-11-04
  */
 
 #pragma once
@@ -17,7 +17,7 @@ class shell_executer {
 		wchar_t file[MAX_PATH], param[MAX_PATH];
 	};
 
-	static DWORD WINAPI thread_proc(LPVOID d) {
+	static DWORD WINAPI thread_proc(LPVOID d) noexcept {
 		file_param* fp = (file_param*)d;
 		wchar_t old_cd[MAX_PATH];
 		::GetCurrentDirectory(MAX_PATH, old_cd);
@@ -30,12 +30,12 @@ class shell_executer {
 		sei.fMask        = SEE_MASK_FLAG_LOG_USAGE | SEE_MASK_FLAG_DDEWAIT | SEE_MASK_UNICODE;
 		sei.hwnd         = nullptr;
 		sei.lpVerb       = nullptr;
-		sei.lpFile       = fp->file;
-		sei.lpParameters = fp->param;
+		sei.lpFile       = &fp->file[0];
+		sei.lpParameters = &fp->param[0];
 		sei.lpDirectory  = nullptr;
 		sei.nShow        = SW_SHOW;
 		sei.hInstApp     = nullptr;
-		bool ret = ::ShellExecuteEx(&sei);
+		const bool ret = ::ShellExecuteEx(&sei);
 
 		_RPTFWN(_CRT_WARN, L"ShellExecute %d\n", GetLastError());
 
@@ -46,7 +46,7 @@ class shell_executer {
 
 public:
 
-	static void execute(const wchar_t file[], const wchar_t param[]) {
+	static void execute(const wchar_t file[], const wchar_t param[]) noexcept {
 		file_param* fp = (file_param*)::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(file_param));
 		if (fp == NULL) return;
 		wcscpy_s(fp->file, MAX_PATH, file);
@@ -62,7 +62,7 @@ public:
 		}
 	}
 
-	static bool is_executing() {
+	static bool is_executing() noexcept {
 		return h_thread != nullptr;
 	}
 

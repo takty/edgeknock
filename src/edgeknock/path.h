@@ -2,7 +2,7 @@
  * Path Utilities
  *
  * @author Takuto Yanagida
- * @version 2024-07-01
+ * @version 2025-11-04
  */
 
 #pragma once
@@ -10,7 +10,7 @@
 
 class path {
 
-	static int find_last_of(const wchar_t* str, wchar_t c) {
+	static int find_last_of(const wchar_t* str, wchar_t c) noexcept {
 		for (int i = (int)wcslen(str) - 1; i >= 0; --i) {
 			if (str[i] == c) return i;
 		}
@@ -19,14 +19,14 @@ class path {
 
 public:
 
-	static wchar_t* name(wchar_t* ret, const wchar_t* path) {
-		int i = find_last_of(path, L'\\');
+	static wchar_t* name(wchar_t* ret, const wchar_t* path) noexcept {
+		const int i = find_last_of(path, L'\\');
 
 		if (i == -1) {  // When path is only file name
 			wcscpy_s(ret, MAX_PATH, path);
 		}
 		else if (i == 2 && path[3] == L'\0') {  // When path is root
-			LPWSTR r = lstrcpyn(ret, path, 3);  // return "C:"
+			const LPWSTR r = lstrcpyn(ret, path, 3);  // return "C:"
 		}
 		else {
 			wcscpy_s(ret, MAX_PATH, path + i + 1);
@@ -34,7 +34,7 @@ public:
 		return ret;
 	}
 
-	static wchar_t* parent(wchar_t* ret, const wchar_t* path) {
+	static wchar_t* parent(wchar_t* ret, const wchar_t* path) noexcept {
 		int i = find_last_of(path, L'\\');
 
 		if (i == -1) {
@@ -45,12 +45,12 @@ public:
 		}
 		else {
 			if (i == 2) ++i;
-			LPWSTR r = lstrcpyn(ret, path, i + 1);
+			const LPWSTR r = lstrcpyn(ret, path, i + 1);
 		}
 		return ret;
 	}
 
-	static wchar_t* parent_dest(wchar_t* path) {
+	static wchar_t* parent_dest(wchar_t* path) noexcept {
 		int i = find_last_of(path, L'\\');
 
 		if (i == -1) {
@@ -66,14 +66,14 @@ public:
 		return path;
 	}
 
-	static wchar_t* absolute_path(wchar_t* path) {
-		wchar_t tmp[MAX_PATH];
+	static wchar_t* absolute_path(wchar_t* path) noexcept {
+		wchar_t tmp[MAX_PATH]{};
 
 		if (path[0] == L'.' && path[1] == L'\\') {
-			::GetModuleFileName(NULL, tmp, MAX_PATH - 1);
-			parent_dest(tmp);
-			wcscat_s(tmp, MAX_PATH, path + 1);
-			wcscpy_s(path, MAX_PATH, tmp);
+			::GetModuleFileName(NULL, &tmp[0], MAX_PATH - 1);
+			parent_dest(&tmp[0]);
+			wcscat_s(&tmp[0], MAX_PATH, path + 1);
+			wcscpy_s(path, MAX_PATH, &tmp[0]);
 		}
 		return path;
 	}
