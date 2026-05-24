@@ -2,12 +2,15 @@
  * Shell Executer
  *
  * @author Takuto Yanagida
- * @version 2025-11-04
+ * @version 2026-05-24
  */
 
 #pragma once
+
 #include <windows.h>
-#include "path.h"
+
+#include "path.hpp"
+#include "file_system.hpp"
 
 class shell_executer {
 
@@ -18,13 +21,14 @@ class shell_executer {
 	};
 
 	static DWORD WINAPI thread_proc(LPVOID d) noexcept {
-		file_param* fp = (file_param*)d;
-		wchar_t old_cd[MAX_PATH];
-		::GetCurrentDirectory(MAX_PATH, old_cd);
+		[[gsl::suppress("type.1")]]
+		file_param* fp = reinterpret_cast<file_param*>(d);
 
-		wchar_t parent[MAX_PATH];
-		::SetCurrentDirectory(path::parent(parent, fp->file));
+		const auto old_cd = file_system::current_directory_path();
+		const auto parent = path::parent(&fp->file[0]);
+		::SetCurrentDirectory(parent.c_str());
 
+		[[gsl::suppress("type.7")]]
 		SHELLEXECUTEINFO sei{};
 		sei.cbSize       = sizeof(SHELLEXECUTEINFO);
 		sei.fMask        = SEE_MASK_FLAG_LOG_USAGE | SEE_MASK_FLAG_DDEWAIT | SEE_MASK_UNICODE;
@@ -35,22 +39,24 @@ class shell_executer {
 		sei.lpDirectory  = nullptr;
 		sei.nShow        = SW_SHOW;
 		sei.hInstApp     = nullptr;
-		const bool ret = ::ShellExecuteEx(&sei);
+		::ShellExecuteEx(&sei);
 
 		_RPTFWN(_CRT_WARN, L"ShellExecute %d\n", GetLastError());
 
-		::SetCurrentDirectory(old_cd);  // for making removable disk ejectable
+		::SetCurrentDirectory(old_cd.c_str());  // for making removable disk ejectable
 		::HeapFree(::GetProcessHeap(), 0, fp);
 		::ExitThread(0);
 	}
 
 public:
 
-	static void execute(const wchar_t file[], const wchar_t param[]) noexcept {
-		file_param* fp = (file_param*)::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(file_param));
+	static void execute(const std::wstring& file, const std::wstring& param) noexcept {
+		[[gsl::suppress("type.1")]]
+		file_param* fp = reinterpret_cast<file_param*>(::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(file_param)));
 		if (fp == NULL) return;
-		wcscpy_s(fp->file, MAX_PATH, file);
-		wcscpy_s(fp->param, MAX_PATH, param);
+
+		wcscpy_s(&(fp->file[0]), MAX_PATH, file.c_str());
+		wcscpy_s(&(fp->param[0]), MAX_PATH, param.c_str());
 
 		h_thread = ::CreateThread(nullptr, 0, shell_executer::thread_proc, fp, 0, nullptr);
 		if (h_thread) {

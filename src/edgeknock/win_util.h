@@ -2,27 +2,39 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2025-11-04
+ * @version 2026-05-24
  */
 
 #pragma once
+
 #include <utility>
+#include <string>
 #include <windows.h>
-#include "path.h"
+
+#include "gsl/gsl"
+#include "path.hpp"
+#include "file_system.hpp"
 
 class win_util {
+	struct watch_module_directory_params {
+		HWND hwnd;
+		UINT msg;
+	};
 
 	static DWORD WINAPI watch_module_directory_thread(LPVOID ps) noexcept {
-		HWND hwnd = (HWND)((long long int*) ps)[0];
-		UINT msg = (UINT)((long long int*)ps)[1];
+		if (ps == nullptr) {
+			return gsl::narrow_cast<DWORD>(-1);
+		}
+		const auto* const params = static_cast<const watch_module_directory_params*>(ps);
+		const HWND hwnd = params->hwnd;
+		const UINT msg  = params->msg;
 
-		wchar_t path[MAX_PATH];
-		::GetModuleFileName(NULL, path, MAX_PATH - 1);
-		path::parent_dest(path);
+		auto temp = file_system::module_file_path();
+		auto path = path::parent(temp);
 
 		// Observe ini file writing
-		HANDLE h = ::FindFirstChangeNotification(path, FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
-		if (h == INVALID_HANDLE_VALUE) return (DWORD)-1;
+		HANDLE h = ::FindFirstChangeNotification(path.c_str(), FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
+		if (h == INVALID_HANDLE_VALUE) return gsl::narrow_cast<DWORD>(-1);
 
 		// Wait until changing
 		while (true) {
@@ -43,8 +55,10 @@ public:
 
 	static void watch_module_directory(HWND hwnd, UINT msg) noexcept {
 		DWORD t_id{};
-		static long long int ps[] = { (long long int) hwnd, msg };
-		::CreateThread(NULL, 0, win_util::watch_module_directory_thread, ps, 0, &t_id);
+		static watch_module_directory_params ps{};
+		ps.hwnd = hwnd;
+		ps.msg = msg;
+		::CreateThread(nullptr, 0, win_util::watch_module_directory_thread, &ps, 0, &t_id);
 	}
 
 	static void set_foreground_window(HWND hWnd) noexcept {
@@ -61,18 +75,18 @@ public:
 	}
 
 	static bool is_foreground_window_fullscreen(void) noexcept {
-		RECT s{};
+		RECT wr{};
 		HWND fw = ::GetForegroundWindow();
-		::GetWindowRect(fw, &s);
+		::GetWindowRect(fw, &wr);
 
 		const int dpi = ::GetDpiForWindow(fw);
-		const int sw = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
-		const int sh = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
+		const int sw  = ::GetSystemMetricsForDpi(SM_CXSCREEN, dpi);
+		const int sh  = ::GetSystemMetricsForDpi(SM_CYSCREEN, dpi);
 
-		if (s.left <= 0 && s.top <= 0 && s.right >= sw && s.bottom >= sh) {
-			wchar_t cls[256];
-			::GetClassName(fw, cls, 256);
-			if (wcscmp(cls, L"Progman") != 0 && wcscmp(cls, L"WorkerW") != 0) {
+		if (wr.left <= 0 && wr.top <= 0 && sw <= wr.right && sh <= wr.bottom) {
+			wchar_t cn[256]{};
+			::GetClassName(fw, &cn[0], 256);
+			if (wcscmp(&cn[0], L"Progman") != 0 && wcscmp(&cn[0], L"WorkerW") != 0) {
 				return true;
 			}
 		}
@@ -87,12 +101,12 @@ public:
 		return ::CreateFontIndirect(&(ncm.lfMessageFont));
 	}
 
-	static SIZE get_text_size(HWND hwnd, const wchar_t* msg, size_t len) noexcept {
+	static SIZE get_text_size(HWND hwnd, const std::wstring& msg) noexcept {
 		HDC hdc = ::GetDC(hwnd);
 		HFONT dlgFont = win_util::get_default_font(hwnd);
 		::SelectObject(hdc, dlgFont);
 		SIZE font;
-		::GetTextExtentPoint32(hdc, msg, (int)len, &font);
+		::GetTextExtentPoint32(hdc, msg.c_str(), msg.length(), &font);
 		::DeleteObject(dlgFont);
 		::ReleaseDC(hwnd, hdc);
 		return font;
