@@ -1,5 +1,6 @@
 // mh.cpp : Defines the exported functions for the DLL application.
 
+#include "gsl/gsl"
 #include "stdafx.h"
 
 HINSTANCE HInst;
@@ -35,13 +36,13 @@ __declspec(dllexport) int EndHook() {
 }
 
 __declspec(dllexport) LRESULT CALLBACK HookProc(int code, WPARAM wp, LPARAM lp) {
-	MOUSEHOOKSTRUCT* mhs = (MOUSEHOOKSTRUCT*)lp;
+	[[gsl::suppress("type.1")]]
+	const MOUSEHOOKSTRUCT* mhs = reinterpret_cast<const MOUSEHOOKSTRUCT*>(lp);
 
 	if (code < 0) {
 		return CallNextHookEx(HHook, code, wp, lp);
 	}
 	if (HWnd && (wp == WM_MOUSEMOVE || wp == WM_NCMOUSEMOVE)) {
-		LogicalToPhysicalPoint(mhs->hwnd, &(mhs->pt));
 		PostMessage(HWnd, WM_MOUSEMOVEHOOK, mhs->pt.x, mhs->pt.y);
 	}
 	return CallNextHookEx(HHook, code, wp, lp);
