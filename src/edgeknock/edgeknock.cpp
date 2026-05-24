@@ -2,79 +2,89 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2025-11-04
+ * @version 2026-05-24
  */
+
+#include "stdafx.h"
 
 #include <chrono>
 using namespace std::chrono;
 
-#include "stdafx.h"
+#include "gsl/gsl"
 #include "edgeknock.h"
 #include "win_util.h"
-#include "path.h"
+#include "path.hpp"
+#include "file_system.hpp"
 #include "knock_detector.h"
 #include "corner_detector.h"
 #include "shell_executer.h"
+#include "pref.hpp"
 
 constexpr auto MAX_LINE = 1024;  // Max length of path with option string
 constexpr auto MAX_HOTKEY = 16;  // Max hotkey count
 
-const wchar_t WIN_CLS[] = L"EDGEKNOCK";
+const wchar_t MUTEX[]       = _T("EDGEKNOCK_20260524");
+const wchar_t CLASS_NAME[]  = _T("Edgeknock");
+const wchar_t WINDOW_NAME[] = _T("Edgeknock");
+
 knock_detector Kd;
 corner_detector Cd;
-wchar_t IniPath[MAX_LINE];
+std::wstring IniPath;
+Pref pref;
 bool FullScreenCheck = true;
-wchar_t MsgStr[MAX_LINE];
+std::wstring MsgStr;
 int MsgTimeLeft = 0;
 
 int last_x = -1;
 int last_y = -1;
 
-ATOM InitApplication(HINSTANCE) noexcept;
+ATOM InitApplication(HINSTANCE, const wchar_t* class_name) noexcept;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void WmCreate(HWND);
 void WmPaint(HWND) noexcept;
 void WmMouseMove(HWND, int, int) noexcept;
-void WmHotkey(HWND, int);
+void WmHotkey(HWND, WPARAM);
 void WmTimer(HWND) noexcept;
 void WmUser(HWND);
 void WmClose(HWND) noexcept;
 
-void LoadConfiguration(HWND hwnd) noexcept;
-void SetHotkey(HWND hwnd, const wchar_t* key, int id) noexcept;
+void LoadConfiguration(HWND hwnd);
+void SetHotkey(HWND hwnd, const std::wstring& key, int id) noexcept;
 
 void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const int cx, const int cy);
 void ExecuteEdge(HMONITOR hmon, HWND hwnd, int area, int index);
 void ExecuteCorner(HMONITOR hmon, HWND hwnd, int corner);
 void ExecuteHotkey(HMONITOR hmon, HWND hwnd, int id);
-void Execute(HMONITOR hmon, HWND hwnd, const wchar_t path[], int corner, int area);
-void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) noexcept;
-void ShowMessage(HMONITOR hmon, HWND hwnd, const wchar_t* msg, int corner = -1, int area = -1);
+void Execute(HMONITOR hmon, HWND hwnd, const std::wstring& path, int corner, int area);
+void ExtractCommandLine(const std::wstring& path, std::wstring& cmd, std::wstring& opt) noexcept;
+void ShowMessage(HMONITOR hmon, HWND hwnd, const std::wstring& msg, int corner = -1, int area = -1);
 
-int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE hprev_instance, _In_ LPWSTR, _In_ int) {
-	::CreateMutex(nullptr, FALSE, &WIN_CLS[0]);
-
+int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int) {
+	::CreateMutex(nullptr, FALSE, &MUTEX[0]);
 	if (::GetLastError() == ERROR_ALREADY_EXISTS) {
-		const HWND handle = ::FindWindow(&WIN_CLS[0], nullptr);
+		const HWND handle = ::FindWindow(&CLASS_NAME[0], nullptr);
 		if (handle) {
 			::SendMessage(handle, WM_CLOSE, 0, 0);
 		}
 		return 0;
 	}
-	InitApplication(hinstance);
-	const HWND hWnd = ::CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, WIN_CLS, L"", WS_BORDER | WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hinstance, nullptr);
+	if (!InitApplication(hinstance, &CLASS_NAME[0])) {
+		return 0;
+	}
+	[[gsl::suppress("con.4")]]
+	const HWND hWnd = ::CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST, &CLASS_NAME[0], &WINDOW_NAME[0], WS_BORDER | WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hinstance, nullptr);
 	if (!hWnd) {
 		return 0;
 	}
-	MSG msg;
+	MSG msg{};
 	while (::GetMessage(&msg, nullptr, 0, 0)) {
 		::TranslateMessage(&msg);
 		::DispatchMessage(&msg);
 	}
-	return (int)msg.wParam;
+	return gsl::narrow<int>(msg.wParam);
 }
 
-ATOM InitApplication(HINSTANCE hinstance) noexcept {
+ATOM InitApplication(HINSTANCE hinstance, const wchar_t* class_name) noexcept {
 	WNDCLASSEXW wcex{};
 	wcex.cbSize         = sizeof(WNDCLASSEX);
 	wcex.style          = CS_HREDRAW | CS_VREDRAW;
@@ -84,10 +94,10 @@ ATOM InitApplication(HINSTANCE hinstance) noexcept {
 	wcex.hInstance      = hinstance;
 	wcex.hIcon          = nullptr;
 	wcex.hCursor        = nullptr;
-	wcex.hbrBackground  = (HBRUSH)(COLOR_INFOBK + 1);
+	[[gsl::suppress("type.1")]]
+	wcex.hbrBackground  = reinterpret_cast<HBRUSH>(COLOR_INFOBK + 1);
 	wcex.lpszMenuName   = nullptr;
-	wcex.lpszClassName  = &WIN_CLS[0];
-	wcex.hIconSm        = nullptr;
+	wcex.lpszClassName  = class_name;
 	return ::RegisterClassExW(&wcex);
 }
 
@@ -95,8 +105,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
 	switch (message) {
 	case WM_CREATE:        WmCreate(hwnd); break;
 	case WM_PAINT:         WmPaint(hwnd); break;
-	case WM_MOUSEMOVEHOOK: WmMouseMove(hwnd, (int)wparam, (int)lparam); break;
-	case WM_HOTKEY:        WmHotkey(hwnd, (int)wparam); break;
+	case WM_MOUSEMOVEHOOK: WmMouseMove(hwnd, gsl::narrow_cast<int>(wparam), gsl::narrow_cast<int>(lparam)); break;
+	case WM_HOTKEY:        WmHotkey(hwnd, wparam); break;
 	case WM_TIMER:         WmTimer(hwnd); break;
 	case WM_USER:          WmUser(hwnd); break;
 	case WM_CLOSE:         WmClose(hwnd); break;
@@ -107,10 +117,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
 }
 
 void WmCreate(HWND hwnd) {
-	::GetModuleFileName(nullptr, IniPath, MAX_PATH);
-	IniPath[wcslen(IniPath) - 3] = L'\0';
-	wcscat_s(IniPath, MAX_PATH, L"ini");
-
 	LoadConfiguration(hwnd);
 	win_util::watch_module_directory(hwnd, WM_USER);
 	::SetTimer(hwnd, 1, 100, nullptr);
@@ -131,7 +137,7 @@ void WmPaint(HWND hwnd) noexcept {
 	::SelectObject(hdc, dlgFont);
 	::SetBkMode(hdc, TRANSPARENT);
 	::SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
-	::DrawText(hdc, MsgStr, -1, &r, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+	::DrawText(hdc, MsgStr.c_str(), -1, &r, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
 
 	::EndPaint(hwnd, &paint);
 	::DeleteObject(dlgFont);
@@ -149,7 +155,9 @@ void WmMouseMove(HWND hwnd, int x, int y) noexcept {
 
 	WPT logical{ hwnd, x, y };
 
+	[[gsl::suppress("type.1")]]
 	::EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hmon, HDC, LPRECT, LPARAM lParam) -> BOOL {
+		[[gsl::suppress("type.1")]]
 		const WPT* wpt  = reinterpret_cast<WPT*>(lParam);
 		const HWND hwnd = wpt->hwnd;
 		const POINT pt  = { wpt->x, wpt->y };
@@ -167,10 +175,10 @@ void WmMouseMove(HWND hwnd, int x, int y) noexcept {
 			return FALSE;
 		}
 		return TRUE;
-		}, reinterpret_cast<LPARAM>(&logical));
+	}, reinterpret_cast<LPARAM>(&logical));
 }
 
-void WmHotkey(HWND hwnd, int id) {
+void WmHotkey(HWND hwnd, WPARAM id) {
 	if (MAX_HOTKEY <= id) {
 		return;
 	}
@@ -200,58 +208,55 @@ void WmClose(HWND hwnd) noexcept {
 // ----------------------------------------------------------------------------
 
 
-void LoadConfiguration(HWND hwnd) noexcept {
-	FullScreenCheck = (bool) ::GetPrivateProfileInt(L"Setting", L"FullScreenCheck", FullScreenCheck, IniPath);
+void LoadConfiguration(HWND hwnd) {
+	pref.set_current_section(L"Setting");
 
-	const int limitTime = ::GetPrivateProfileInt(L"Setting", L"LimitTime", 300, IniPath);
-	const int edgeW     = ::GetPrivateProfileInt(L"Setting", L"EdgeWidth", 4, IniPath);
-	const int neEdgeW   = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidth", 18, IniPath);
-	const int sepL      = ::GetPrivateProfileInt(L"Setting", L"Left", 3, IniPath);
-	const int sepR      = ::GetPrivateProfileInt(L"Setting", L"Right", 3, IniPath);
-	const int sepT      = ::GetPrivateProfileInt(L"Setting", L"Top", 3, IniPath);
-	const int sepB      = ::GetPrivateProfileInt(L"Setting", L"Bottom", 3, IniPath);
+	FullScreenCheck = pref.item_int(L"FullScreenCheck", FullScreenCheck);
 
-	const int edgeWL   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthLeft", edgeW, IniPath);
-	const int edgeWR   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthRight", edgeW, IniPath);
-	const int edgeWT   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthTop", edgeW, IniPath);
-	const int edgeWB   = ::GetPrivateProfileInt(L"Setting", L"EdgeWidthBottom", edgeW, IniPath);
-	const int neEdgeWL = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthLeft", neEdgeW, IniPath);
-	const int neEdgeWR = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthRight", neEdgeW, IniPath);
-	const int neEdgeWT = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthTop", neEdgeW, IniPath);
-	const int neEdgeWB = ::GetPrivateProfileInt(L"Setting", L"NoEffectWidthBottom", neEdgeW, IniPath);
+	const int limitTime = pref.item_int(L"LimitTime", 300);
+	const int edgeW     = pref.item_int(L"EdgeWidth", 4);
+	const int neEdgeW   = pref.item_int(L"NoEffectWidth", 18);
+	const int sepL      = pref.item_int(L"Left", 3);
+	const int sepR      = pref.item_int(L"Right", 3);
+	const int sepT      = pref.item_int(L"Top", 3);
+	const int sepB      = pref.item_int(L"Bottom", 3);
+
+	const int edgeWL   = pref.item_int(L"EdgeWidthLeft", edgeW);
+	const int edgeWR   = pref.item_int(L"EdgeWidthRight", edgeW);
+	const int edgeWT   = pref.item_int(L"EdgeWidthTop", edgeW);
+	const int edgeWB   = pref.item_int(L"EdgeWidthBottom", edgeW);
+	const int neEdgeWL = pref.item_int(L"NoEffectWidthLeft", neEdgeW);
+	const int neEdgeWR = pref.item_int(L"NoEffectWidthRight", neEdgeW);
+	const int neEdgeWT = pref.item_int(L"NoEffectWidthTop", neEdgeW);
+	const int neEdgeWB = pref.item_int(L"NoEffectWidthBottom", neEdgeW);
 
 	Kd.set_time_limit(limitTime);
 	Kd.set_edge_separations(sepL, sepR, sepT, sepB);
 	Kd.set_edge_widths(edgeWL, edgeWR, edgeWT, edgeWB);
 	Kd.set_no_effect_edge_widths(neEdgeWL, neEdgeWR, neEdgeWT, neEdgeWB);
 
-	const int cornerSize = ::GetPrivateProfileInt(L"Setting", L"CornerSize", 8, IniPath);
-	const int delayTime  = ::GetPrivateProfileInt(L"Setting", L"DelayTime", 200, IniPath);
+	const int cornerSize = pref.item_int(L"Setting", L"CornerSize", 8);
+	const int delayTime  = pref.item_int(L"Setting", L"DelayTime", 200);
 
 	Cd.set_corner_size(cornerSize);
 	Cd.set_delay_time(delayTime);
 
 	for (int i = 0; i < MAX_HOTKEY; ++i) {
-		wchar_t key[8], hotkey[6];
 		::UnregisterHotKey(hwnd, i);
-		wsprintf(key, L"Key%d", i + 1);
-		::GetPrivateProfileString(L"HotKey", key, L"", hotkey, 6, IniPath);
+		const std::wstring hotkey = pref.item(L"Key" + std::to_wstring(i + 1), L"");
 		::SetHotkey(hwnd, hotkey, i);
 	}
 }
 
-void SetHotkey(HWND hwnd, const wchar_t* key, int id) noexcept {
-	if (wcslen(key) < 5) {
-		return;
-	}
+void SetHotkey(HWND hwnd, const std::wstring& key, int id) noexcept {
+	if (key.size() < 5) return;
+
 	UINT flag = 0;
-	if (key[0] == L'1') flag |= MOD_ALT;
-	if (key[1] == L'1') flag |= MOD_CONTROL;
-	if (key[2] == L'1') flag |= MOD_SHIFT;
-	if (key[3] == L'1') flag |= MOD_WIN;
-	if (flag) {
-		::RegisterHotKey(hwnd, id, flag, key[4]);
-	}
+	if (key.at(0) == L'1') flag |= MOD_ALT;
+	if (key.at(1) == L'1') flag |= MOD_CONTROL;
+	if (key.at(2) == L'1') flag |= MOD_SHIFT;
+	if (key.at(3) == L'1') flag |= MOD_WIN;
+	if (flag) ::RegisterHotKey(hwnd, id, flag, key.at(4));
 }
 
 
@@ -278,72 +283,70 @@ void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const 
 }
 
 void ExecuteEdge(HMONITOR hmon, HWND hwnd, int area, int index) {
-	const wchar_t sec[][7] = { L"Left", L"Right", L"Top", L"Bottom" };
-	wchar_t path[MAX_LINE];
-	wchar_t key[8];
-	wsprintf(key, L"Path%d", index + 1);
-	::GetPrivateProfileString(sec[area], key, L"", path, MAX_LINE, IniPath);
+	static const std::array<std::wstring, 4> sec = { L"Left", L"Right", L"Top", L"Bottom" };
+	pref.set_current_section(sec.at(area));
+	const std::wstring path = pref.item(L"Path" + std::to_wstring(index + 1), L"");
 	Execute(hmon, hwnd, path, -1, area);
 }
 
 void ExecuteCorner(HMONITOR hmon, HWND hwnd, int corner) {
-	wchar_t path[MAX_LINE];
-	wchar_t key[8];
-	wsprintf(key, L"Path%d", corner + 1);
-	::GetPrivateProfileString(L"Corner", key, L"", path, MAX_LINE, IniPath);
+	pref.set_current_section(L"Corner");
+	const std::wstring path = pref.item(L"Path" + std::to_wstring(corner + 1), L"");
 	Execute(hmon, hwnd, path, corner, -1);
 }
 
 void ExecuteHotkey(HMONITOR hmon, HWND hwnd, int id) {
-	wchar_t path[MAX_LINE];
-	wchar_t key[8];
-	wsprintf(key, L"Path%d", id + 1);
-	::GetPrivateProfileString(L"HotKey", key, L"", path, MAX_LINE, IniPath);
+	pref.set_current_section(L"HotKey");
+	const std::wstring path = pref.item(L"Path" + std::to_wstring(id + 1), L"");
 	Execute(hmon, hwnd, path, -1, -1);
 }
 
-void Execute(HMONITOR hmon, HWND hwnd, const wchar_t path[], int corner, int area) {
-	if (path[0] == L'\0') return;
+void Execute(HMONITOR hmon, HWND hwnd, const std::wstring& path, int corner, int area) {
+	if (path.empty()) {
+		return;
+	}
 	if (FullScreenCheck && win_util::is_foreground_window_fullscreen()) return;
 	if (shell_executer::is_executing() != 0) return;  // When starting program
 
 	win_util::set_foreground_window(hwnd);
 
-	wchar_t cmd[MAX_PATH], opt[MAX_PATH], fn[MAX_PATH];
+	std::wstring cmd, opt;
 	ExtractCommandLine(path, cmd, opt);
-	ShowMessage(hmon, hwnd, path::name(fn, cmd), corner, area);  // Show message first
+	auto fn = path::name(cmd);
+	ShowMessage(hmon, hwnd, fn, corner, area);  // Show message first
 
 	shell_executer::execute(cmd, opt);
 }
 
-void ExtractCommandLine(const wchar_t path[], wchar_t cmd[], wchar_t opt[]) noexcept {
-	cmd[0] = opt[0] = L'\0';
-	for (const wchar_t* c = &path[0]; *c != L'\0'; ++c) {
-		if (*c == '|') {
-			const LPWSTR r = lstrcpyn(cmd, path, (int)(c - &path[0] + 1));  // Increase one for \0
-			wcscpy_s(opt, MAX_PATH, c + 1);
-			break;
-		}
+void ExtractCommandLine(const std::wstring& path, std::wstring& cmd, std::wstring& opt) noexcept {
+	cmd.clear();
+	opt.clear();
+	if (path.empty()) {
+		return;
 	}
-	if (cmd[0] == L'\0') {
-		wcscpy_s(cmd, MAX_PATH, path);
+	const auto pos = path.find(L'|');
+	if (pos == std::wstring::npos) {
+		cmd = path;
 	}
-	if (wcscmp(cmd, L"{CONFIG}") == 0) {  // Special command {CONFIG}
-		wcscpy_s(cmd, MAX_PATH, IniPath);
-		opt[0] = L'\0';
+	else {
+		cmd = path.substr(0, pos);
+		opt = path.substr(pos + 1);
 	}
-	path::absolute_path(cmd);
+	if (cmd == L"{CONFIG}") {  // Special command {CONFIG}
+		cmd = IniPath;
+		opt.clear();
+	}
+	cmd = path::absolute_path(cmd, file_system::module_file_path());
 }
 
-void ShowMessage(HMONITOR hmon, HWND hwnd, const wchar_t* msg, int corner, int area) {
-	const size_t len = wcslen(msg);
-	if (len == 0) {
+void ShowMessage(HMONITOR hmon, HWND hwnd, const std::wstring& msg, int corner, int area) {
+	if (msg.empty()) {
 		return;
 	}
 	const RECT mr = win_util::get_monitor_rect(hmon);
 	::MoveWindow(hwnd, mr.left, mr.top, 0, 0, FALSE);
 
-	const SIZE font = win_util::get_text_size(hwnd, msg, len);
+	const SIZE font = win_util::get_text_size(hwnd, msg);
 	const int w = font.cx + 10, h = font.cy + 10;
 
 	POINT p;
@@ -360,10 +363,11 @@ void ShowMessage(HMONITOR hmon, HWND hwnd, const wchar_t* msg, int corner, int a
 	int x = 0, y = 0;
 	if (corner != -1) {
 		switch (corner) {
-		case 0: x = off_x;             y = off_y;          break;
-		case 1: x = scr_w - w - off_x; y = off_y;          break;
+		case 0: x = off_x;             y = off_y;             break;
+		case 1: x = scr_w - w - off_x; y = off_y;             break;
 		case 2: x = scr_w - w - off_x; y = scr_h - h - off_y; break;
 		case 3: x = off_x;             y = scr_h - h - off_y; break;
+		default:  // do nothing
 		}
 	}
 	else if (area != -1) {
@@ -372,13 +376,14 @@ void ShowMessage(HMONITOR hmon, HWND hwnd, const wchar_t* msg, int corner, int a
 		case 1: x = scr_w - w; y = (p.y > scr_h / 2) ? (p.y - h - off_y) : (p.y + off_y); break;
 		case 2: x = (p.x > scr_w / 2) ? (p.x - w - off_x) : (p.x + off_x); y = 0;         break;
 		case 3: x = (p.x > scr_w / 2) ? (p.x - w - off_x) : (p.x + off_x); y = scr_h - h; break;
+		default:  // do nothing
 		}
 	}
 	else {
 		x = (scr_w - w) / 2;
 		y = (scr_h - h) / 2;
 	}
-	wcscpy_s(MsgStr, MAX_LINE, msg);
+	MsgStr.assign(msg);
 	MsgTimeLeft = 10;
 	::MoveWindow(hwnd, x + mr.left, y + mr.top, w, h, FALSE);
 	::ShowWindow(hwnd, SW_SHOW);
