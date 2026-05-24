@@ -1,7 +1,8 @@
 // mh.cpp : Defines the exported functions for the DLL application.
 
-#include "gsl/gsl"
 #include "stdafx.h"
+
+#include "gsl/gsl"
 
 HINSTANCE HInst;
 
