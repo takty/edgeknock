@@ -183,7 +183,7 @@ void WmHotkey(HWND hwnd, WPARAM id) {
 		return;
 	}
 	HMONITOR hmon = ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
-	ExecuteHotkey(hmon, hwnd, id);
+	ExecuteHotkey(hmon, hwnd, gsl::narrow_cast<int>(id));
 }
 
 void WmTimer(HWND hwnd) noexcept {

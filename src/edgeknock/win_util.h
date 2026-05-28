@@ -2,7 +2,7 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2026-05-24
+ * @version 2026-05-28
  */
 
 #pragma once
@@ -106,7 +106,7 @@ public:
 		HFONT dlgFont = win_util::get_default_font(hwnd);
 		::SelectObject(hdc, dlgFont);
 		SIZE font;
-		::GetTextExtentPoint32(hdc, msg.c_str(), msg.length(), &font);
+		::GetTextExtentPoint32(hdc, msg.c_str(), gsl::narrow_cast<int>(msg.length()), &font);
 		::DeleteObject(dlgFont);
 		::ReleaseDC(hwnd, hdc);
 		return font;
