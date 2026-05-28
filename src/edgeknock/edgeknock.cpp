@@ -2,7 +2,7 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2026-05-24
+ * @version 2026-05-28
  */
 
 #include "stdafx.h"
@@ -235,12 +235,13 @@ void LoadConfiguration(HWND hwnd) {
 	Kd.set_edge_widths(edgeWL, edgeWR, edgeWT, edgeWB);
 	Kd.set_no_effect_edge_widths(neEdgeWL, neEdgeWR, neEdgeWT, neEdgeWB);
 
-	const int cornerSize = pref.item_int(L"Setting", L"CornerSize", 8);
-	const int delayTime  = pref.item_int(L"Setting", L"DelayTime", 200);
+	const int cornerSize = pref.item_int(L"CornerSize", 8);
+	const int delayTime  = pref.item_int(L"DelayTime", 200);
 
 	Cd.set_corner_size(cornerSize);
 	Cd.set_delay_time(delayTime);
 
+	pref.set_current_section(L"HotKey");
 	for (int i = 0; i < MAX_HOTKEY; ++i) {
 		::UnregisterHotKey(hwnd, i);
 		const std::wstring hotkey = pref.item(L"Key" + std::to_wstring(i + 1), L"");
