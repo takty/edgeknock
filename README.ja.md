@@ -2,7 +2,7 @@
 
 [English Ver.](https://github.com/takty/edgeknock/blob/main/README.md)
 
-v1.60 (2024-07-07)
+v1.61 (2026-05-28)
 
 - 開発者: 柳田拓人
 - 動作環境: Windows 11
@@ -49,6 +49,10 @@ MIT License
 
 
 ## 更新履歴
+
+### 2026-05-28 (1.61)
+
+- マルチモニターへの対応が不十分だった問題を改善した。
 
 ### 2024-07-07 (1.60)
 

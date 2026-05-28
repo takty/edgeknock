@@ -2,7 +2,7 @@
 
 [Japanese Ver.](https://github.com/takty/edgeknock/blob/main/README.ja.md)
 
-v1.60 (2024-07-07)
+v1.61 (2026-05-28)
 
 - Developed by: Takuto Yanagida
 - Platforms: Windows 11
