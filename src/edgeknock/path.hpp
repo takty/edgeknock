@@ -2,12 +2,13 @@
  * File Path Operations
  *
  * @author Takuto Yanagida
- * @version 2026-05-24
+ * @version 2026-05-28
  */
 
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <algorithm>
 
@@ -22,30 +23,32 @@ namespace path {
 	constexpr wchar_t const * const UNC_PREFIX = L"\\\\?\\";
 	constexpr size_t UNC_PREFIX_SIZE = 4;
 
-	bool has_unc_prefix(const std::wstring& path) noexcept {
+	bool has_unc_prefix(std::wstring_view path) noexcept {
 		return 0 == path.compare(0, UNC_PREFIX_SIZE, UNC_PREFIX);
 	}
 
-	void append_root_separator_if_drive(std::wstring& out, const std::wstring& path) noexcept {
+	void append_root_separator_if_drive(std::wstring& out, std::wstring_view path) noexcept {
+		if (path.empty()) return;
 		if (path.back() == DRIVE_IDENTIFIER) {
 			out.append(1, PATH_SEPARATOR);
 		}
 	}
 
 	// Extract file name (UNC ok)
-	std::wstring name(const std::wstring& path) noexcept {
+	std::wstring name(std::wstring_view path) noexcept {
+		if (path.empty()) return L"";
 		const auto size = path.size();
 		const auto lp   = (path.back() == PATH_SEPARATOR) ? size - 2 : size - 1;
 		const auto pos  = path.find_last_of(PATH_SEPARATOR, lp);
 
-		if (pos == std::wstring::npos) {  // File name only
-			return path.substr(0, lp + 1);
+		if (pos == std::wstring_view::npos) {  // File name only
+			return std::wstring{ path.substr(0, lp + 1) };
 		}
-		return path.substr(pos + 1, lp - pos);
+		return std::wstring{ path.substr(pos + 1, lp - pos) };
 	}
 
 	// Extract file name without extention
-	std::wstring name_without_ext(const std::wstring& path) noexcept {
+	std::wstring name_without_ext(std::wstring_view path) noexcept {
 		auto ret = name(path);
 		const auto pos = ret.find_last_of(EXT_PREFIX);
 		if (pos != std::wstring::npos) ret.resize(pos);
@@ -53,7 +56,7 @@ namespace path {
 	}
 
 	// Extract file extention
-	std::wstring ext(const std::wstring& path) noexcept {
+	std::wstring ext(std::wstring_view path) noexcept {
 		auto n = name(path);
 		const auto pos = n.find_last_of(EXT_PREFIX);
 
@@ -66,46 +69,52 @@ namespace path {
 	}
 
 	// Extract parent path
-	std::wstring parent(const std::wstring& path) noexcept {
+	std::wstring parent(std::wstring_view path) noexcept {
+		if (path.empty()) return L"";
 		const auto size = path.size();
 		const auto pos = path.find_last_of(PATH_SEPARATOR);
 
-		if (pos == std::wstring::npos) {  // Abnormal
+		if (pos == std::wstring_view::npos) {  // Abnormal
 			return L"";  // Return empty
 		}
 		if (1 < size && path.at(pos - 1) == DRIVE_IDENTIFIER) {  // When root 'C:\'
 			if (pos == size - 1) {  // Pos is the tail end
 				return L"";  // Return empty
 			} else {  // Return containing '\'
-				return path.substr(0, pos + 1);
+				return std::wstring{ path.substr(0, pos + 1) };
 			}
 		}
-		return path.substr(0, pos);
+		return std::wstring{ path.substr(0, pos) };
 	}
 
 	// Quote path
-	std::wstring quote(const std::wstring& path) noexcept {
-		return (L'\"' + path).append(1, L'\"');
+	std::wstring quote(std::wstring_view path) noexcept {
+		std::wstring ret;
+		ret.reserve(path.size() + 2);
+		ret.push_back(L'\"');
+		ret.append(path);
+		ret.push_back(L'\"');
+		return ret;
 	}
 
 	// Ensure the path begin with UNC prefix "\\?\"
-	std::wstring ensure_unc_prefix(const std::wstring& path) noexcept {
+	std::wstring ensure_unc_prefix(std::wstring_view path) noexcept {
 		if (has_unc_prefix(path)) {
-			return path;
+			return std::wstring{ path };
 		}
-		return UNC_PREFIX + path;
+		return std::wstring{ UNC_PREFIX }.append(path);
 	}
 
 	// Ensure the path does not begin with UNC prefix "\\?\"
-	std::wstring ensure_no_unc_prefix(const std::wstring& path) noexcept {
+	std::wstring ensure_no_unc_prefix(std::wstring_view path) noexcept {
 		if (has_unc_prefix(path)) {
-			return path.substr(UNC_PREFIX_SIZE);
+			return std::wstring{ path.substr(UNC_PREFIX_SIZE) };
 		}
-		return path;
+		return std::wstring{ path };
 	}
 
 	// Ensure the path begin with UNC prefix "\\?\" if the path is too long.
-	std::wstring ensure_unc_prefix_if_needed(const std::wstring& path) noexcept {
+	std::wstring ensure_unc_prefix_if_needed(std::wstring_view path) noexcept {
 		const auto p = ensure_no_unc_prefix(path);
 		if (MAX_PATH - 1 < p.size()) {
 			return ensure_unc_prefix(p);
@@ -114,12 +123,15 @@ namespace path {
 	}
 
 	// Translate relative path to absolute path
-	std::wstring absolute_path(const std::wstring& path, const std::wstring& module_file_path) noexcept {
+	std::wstring absolute_path(std::wstring_view path, std::wstring_view module_file_path) noexcept {
+		if (path.size() < 2) {
+			return std::wstring{ path };
+		}
 		if (path.at(0) == EXT_PREFIX && path.at(1) == PATH_SEPARATOR) {
 			auto ret = parent(module_file_path);
 			return ret.append(path, 1);
 		}
-		return path;
+		return std::wstring{ path };
 	}
 
 	// Make quoted and space-separated path string
@@ -147,8 +159,9 @@ namespace path {
 	}
 
 	// Check whether the path is root
-	bool is_root(const std::wstring& path) noexcept {
+	constexpr bool is_root(std::wstring_view path) noexcept {
 		const auto size = path.size();
+		if (size == 0) return false;
 		return
 			(1 < size && path.at(size - 2) == DRIVE_IDENTIFIER && path.at(size - 1) == PATH_SEPARATOR) ||
 			(0 < size && path.at(size - 1) == DRIVE_IDENTIFIER);

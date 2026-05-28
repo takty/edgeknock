@@ -8,6 +8,7 @@
 #include "stdafx.h"
 
 #include <chrono>
+#include <string_view>
 using namespace std::chrono;
 
 #include "gsl/gsl"
@@ -49,15 +50,15 @@ void WmUser(HWND);
 void WmClose(HWND) noexcept;
 
 void LoadConfiguration(HWND hwnd);
-void SetHotkey(HWND hwnd, const std::wstring& key, int id) noexcept;
+void SetHotkey(HWND hwnd, std::wstring_view key, int id) noexcept;
 
 void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const int cx, const int cy);
 void ExecuteEdge(HMONITOR hmon, HWND hwnd, int area, int index);
 void ExecuteCorner(HMONITOR hmon, HWND hwnd, int corner);
 void ExecuteHotkey(HMONITOR hmon, HWND hwnd, int id);
-void Execute(HMONITOR hmon, HWND hwnd, const std::wstring& path, int corner, int area);
-void ExtractCommandLine(const std::wstring& path, std::wstring& cmd, std::wstring& opt) noexcept;
-void ShowMessage(HMONITOR hmon, HWND hwnd, const std::wstring& msg, int corner = -1, int area = -1);
+void Execute(HMONITOR hmon, HWND hwnd, std::wstring_view path, int corner, int area);
+void ExtractCommandLine(std::wstring_view path, std::wstring& cmd, std::wstring& opt) noexcept;
+void ShowMessage(HMONITOR hmon, HWND hwnd, std::wstring_view msg, int corner = -1, int area = -1);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int) {
 	::CreateMutex(nullptr, FALSE, &MUTEX[0]);
@@ -249,7 +250,7 @@ void LoadConfiguration(HWND hwnd) {
 	}
 }
 
-void SetHotkey(HWND hwnd, const std::wstring& key, int id) noexcept {
+void SetHotkey(HWND hwnd, std::wstring_view key, int id) noexcept {
 	if (key.size() < 5) return;
 
 	UINT flag = 0;
@@ -302,7 +303,7 @@ void ExecuteHotkey(HMONITOR hmon, HWND hwnd, int id) {
 	Execute(hmon, hwnd, path, -1, -1);
 }
 
-void Execute(HMONITOR hmon, HWND hwnd, const std::wstring& path, int corner, int area) {
+void Execute(HMONITOR hmon, HWND hwnd, std::wstring_view path, int corner, int area) {
 	if (path.empty()) {
 		return;
 	}
@@ -319,19 +320,19 @@ void Execute(HMONITOR hmon, HWND hwnd, const std::wstring& path, int corner, int
 	shell_executer::execute(cmd, opt);
 }
 
-void ExtractCommandLine(const std::wstring& path, std::wstring& cmd, std::wstring& opt) noexcept {
+void ExtractCommandLine(std::wstring_view path, std::wstring& cmd, std::wstring& opt) noexcept {
 	cmd.clear();
 	opt.clear();
 	if (path.empty()) {
 		return;
 	}
 	const auto pos = path.find(L'|');
-	if (pos == std::wstring::npos) {
+	if (pos == std::wstring_view::npos) {
 		cmd = path;
 	}
 	else {
-		cmd = path.substr(0, pos);
-		opt = path.substr(pos + 1);
+		cmd = std::wstring{ path.substr(0, pos) };
+		opt = std::wstring{ path.substr(pos + 1) };
 	}
 	if (cmd == L"{CONFIG}") {  // Special command {CONFIG}
 		cmd = IniPath;
@@ -340,7 +341,7 @@ void ExtractCommandLine(const std::wstring& path, std::wstring& cmd, std::wstrin
 	cmd = path::absolute_path(cmd, file_system::module_file_path());
 }
 
-void ShowMessage(HMONITOR hmon, HWND hwnd, const std::wstring& msg, int corner, int area) {
+void ShowMessage(HMONITOR hmon, HWND hwnd, std::wstring_view msg, int corner, int area) {
 	if (msg.empty()) {
 		return;
 	}

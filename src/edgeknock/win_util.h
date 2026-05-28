@@ -9,6 +9,7 @@
 
 #include <utility>
 #include <string>
+#include <string_view>
 #include <windows.h>
 
 #include "gsl/gsl"
@@ -86,7 +87,8 @@ public:
 		if (wr.left <= 0 && wr.top <= 0 && sw <= wr.right && sh <= wr.bottom) {
 			wchar_t cn[256]{};
 			::GetClassName(fw, &cn[0], 256);
-			if (wcscmp(&cn[0], L"Progman") != 0 && wcscmp(&cn[0], L"WorkerW") != 0) {
+			const std::wstring_view class_name{ &cn[0] };
+			if (class_name != L"Progman" && class_name != L"WorkerW") {
 				return true;
 			}
 		}
@@ -101,12 +103,12 @@ public:
 		return ::CreateFontIndirect(&(ncm.lfMessageFont));
 	}
 
-	static SIZE get_text_size(HWND hwnd, const std::wstring& msg) noexcept {
+	static SIZE get_text_size(HWND hwnd, std::wstring_view msg) noexcept {
 		HDC hdc = ::GetDC(hwnd);
 		HFONT dlgFont = win_util::get_default_font(hwnd);
 		::SelectObject(hdc, dlgFont);
 		SIZE font;
-		::GetTextExtentPoint32(hdc, msg.c_str(), gsl::narrow_cast<int>(msg.length()), &font);
+		::GetTextExtentPoint32(hdc, msg.data(), gsl::narrow_cast<int>(msg.length()), &font);
 		::DeleteObject(dlgFont);
 		::ReleaseDC(hwnd, hdc);
 		return font;

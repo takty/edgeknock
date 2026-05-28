@@ -2,10 +2,15 @@
  * Shell Executer
  *
  * @author Takuto Yanagida
- * @version 2026-05-24
+ * @version 2026-05-28
  */
 
 #pragma once
+
+#include <memory>
+#include <new>
+#include <process.h>
+#include <string_view>
 
 #include <windows.h>
 
@@ -17,15 +22,14 @@ class shell_executer {
 	static HANDLE h_thread;
 
 	struct file_param {
-		wchar_t file[MAX_PATH], param[MAX_PATH];
+		std::wstring file, param;
 	};
 
-	static DWORD WINAPI thread_proc(LPVOID d) noexcept {
-		[[gsl::suppress("type.1")]]
-		file_param* fp = reinterpret_cast<file_param*>(d);
+	static unsigned __stdcall thread_proc(void* d) noexcept {
+		auto* fp = static_cast<file_param*>(d);
 
 		const auto old_cd = file_system::current_directory_path();
-		const auto parent = path::parent(&fp->file[0]);
+		const auto parent = path::parent(fp->file);
 		::SetCurrentDirectory(parent.c_str());
 
 		[[gsl::suppress("type.7")]]
@@ -34,8 +38,8 @@ class shell_executer {
 		sei.fMask        = SEE_MASK_FLAG_LOG_USAGE | SEE_MASK_FLAG_DDEWAIT | SEE_MASK_UNICODE;
 		sei.hwnd         = nullptr;
 		sei.lpVerb       = nullptr;
-		sei.lpFile       = &fp->file[0];
-		sei.lpParameters = &fp->param[0];
+		sei.lpFile       = fp->file.c_str();
+		sei.lpParameters = fp->param.c_str();
 		sei.lpDirectory  = nullptr;
 		sei.nShow        = SW_SHOW;
 		sei.hInstApp     = nullptr;
@@ -44,27 +48,33 @@ class shell_executer {
 		_RPTFWN(_CRT_WARN, L"ShellExecute %d\n", GetLastError());
 
 		::SetCurrentDirectory(old_cd.c_str());  // for making removable disk ejectable
-		::HeapFree(::GetProcessHeap(), 0, fp);
-		::ExitThread(0);
+		delete fp;
+		return 0;
 	}
 
 public:
 
-	static void execute(const std::wstring& file, const std::wstring& param) noexcept {
-		[[gsl::suppress("type.1")]]
-		file_param* fp = reinterpret_cast<file_param*>(::HeapAlloc(::GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(file_param)));
-		if (fp == NULL) return;
+	static void execute(std::wstring_view file, std::wstring_view param) noexcept {
+		auto fp = std::unique_ptr<file_param>{};
+		try {
+			fp = std::make_unique<file_param>();
+		}
+		catch (const std::bad_alloc&) {
+			return;
+		}
 
-		wcscpy_s(&(fp->file[0]), MAX_PATH, file.c_str());
-		wcscpy_s(&(fp->param[0]), MAX_PATH, param.c_str());
+		fp->file  = file;
+		fp->param = param;
 
-		h_thread = ::CreateThread(nullptr, 0, shell_executer::thread_proc, fp, 0, nullptr);
+		auto* raw_fp = fp.release();
+		const auto thread_handle = ::_beginthreadex(nullptr, 0, shell_executer::thread_proc, raw_fp, 0, nullptr);
+		h_thread = (thread_handle != 0) ? HANDLE(thread_handle) : nullptr;
 		if (h_thread) {
 			::CloseHandle(h_thread);  // Release handle
 			h_thread = nullptr;
 		}
 		else {
-			::HeapFree(::GetProcessHeap(), 0, fp);
+			delete raw_fp;
 		}
 	}
 

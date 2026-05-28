@@ -2,12 +2,13 @@
  * File System Operations
  *
  * @author Takuto Yanagida
- * @version 2026-05-24
+ * @version 2026-05-28
  */
 
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <FileAPI.h>
@@ -18,8 +19,8 @@
 namespace file_system {
 
 	// Template version of find first file
-	template<typename F> bool find_first_file(const std::wstring& path, F fn) {
-		auto parent{ path };
+	template<typename F> bool find_first_file(std::wstring_view path, F fn) {
+		std::wstring parent{ path };
 		parent += (parent.back() == path::PATH_SEPARATOR) ? L"*" : L"\\*";
 
 		WIN32_FIND_DATA wfd{};
@@ -27,7 +28,8 @@ namespace file_system {
 		if (sh == INVALID_HANDLE_VALUE) return false;
 		parent.resize(parent.size() - 1);
 		do {
-			if (!::lstrcmp(&wfd.cFileName[0], L".") || !::lstrcmp(&wfd.cFileName[0], L"..")) continue;
+			const std::wstring_view file_name{ &wfd.cFileName[0] };
+			if (file_name == L"." || file_name == L"..") continue;
 			if (!fn(parent, wfd)) break;
 		} while (::FindNextFile(sh, &wfd));
 		::FindClose(sh);
@@ -132,12 +134,19 @@ namespace file_system {
 		}
 
 		auto build_path = [&](const std::wstring& suffix) {
-			return parent + std::wstring(1, path::PATH_SEPARATOR) + name + post + suffix + ext;
+			std::wstring ret{ parent };
+			ret.push_back(path::PATH_SEPARATOR);
+			ret += name;
+			ret += post;
+			ret += suffix;
+			ret += ext;
+			return ret;
 		};
 
 		auto ret = build_path(L"");
 		for (int i = 1; is_existing(ret); ++i) {
-			ret = build_path(L"(" + std::to_wstring(i) + L")");
+			const auto suffix = std::wstring(L"(") + std::to_wstring(i) + L")";
+			ret = build_path(suffix);
 		}
 		return ret;
 	}
@@ -178,14 +187,14 @@ namespace file_system {
 	}
 
 	// Extract command line string (path|opt)
-	std::pair<std::wstring, std::wstring> extract_command_line_string(const std::wstring& line, const std::vector<std::wstring>& objs) {
+	std::pair<std::wstring, std::wstring> extract_command_line_string(std::wstring_view line, const std::vector<std::wstring>& objs) {
 		const auto sep = line.find_first_of(L'|');
-		if (sep == std::wstring::npos) {
+		if (sep == std::wstring_view::npos) {
 			return { path::absolute_path(line, file_system::module_file_path()), path::space_separated_quoted_paths_string(objs) };
 		}
-		auto opt = line.substr(sep + 1);
+		auto opt = std::wstring{ line.substr(sep + 1) };
 
-		auto replace_placeholder = [&](const std::wstring& placeholder, const std::wstring& replacement) {
+		auto replace_placeholder = [&](std::wstring_view placeholder, std::wstring_view replacement) {
 			const auto pos = opt.find(placeholder);
 			if (pos != std::wstring::npos) opt.replace(pos, placeholder.size(), replacement);
 		};
