@@ -107,7 +107,8 @@
       </SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>Default</ConformanceMode>
-      <AdditionalIncludeDirectories>..\mh\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <EnablePREfast>true</EnablePREfast>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
@@ -130,7 +131,8 @@
       </SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>Default</ConformanceMode>
-      <AdditionalIncludeDirectories>..\mh\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <EnablePREfast>true</EnablePREfast>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
@@ -155,7 +157,8 @@
       </SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>Default</ConformanceMode>
-      <AdditionalIncludeDirectories>..\mh\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <EnablePREfast>true</EnablePREfast>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
@@ -182,7 +185,8 @@
       </SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>Default</ConformanceMode>
-      <AdditionalIncludeDirectories>..\mh\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <EnablePREfast>true</EnablePREfast>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
@@ -207,6 +211,7 @@
     <ClInclude Include="lib\mod_dir_watch.hpp" />
     <ClInclude Include="lib\path.hpp" />
     <ClInclude Include="lib\pref.hpp" />
+    <ClInclude Include="lib\pt_mon.hpp" />
     <ClInclude Include="lib\shell_exec.hpp" />
     <ClInclude Include="lib\win_util.hpp" />
     <ClInclude Include="resource.h" />
@@ -224,11 +229,6 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="edgeknock.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\mh\mh.vcxproj">
-      <Project>{8c3d2483-f85b-45f3-873d-215c0b2ad239}</Project>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="gsl\gsl" />

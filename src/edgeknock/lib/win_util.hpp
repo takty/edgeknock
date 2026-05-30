@@ -2,7 +2,7 @@
  * Window Utilities
  *
  * @author Takuto Yanagida
- * @version 2026-05-30
+ * @version 2026-05-31
  */
 
 #pragma once
@@ -47,39 +47,6 @@ namespace window_utilities {
 			}
 		}
 		return false;
-	}
-
-	bool is_point_in_monitor(HMONITOR hmon, POINT pt) noexcept {
-		MONITORINFOEX mi{};
-		mi.cbSize = sizeof(MONITORINFOEX);
-		if (GetMonitorInfo(hmon, &mi)) {
-			return (
-				pt.x >= mi.rcMonitor.left   &&
-				pt.x <  mi.rcMonitor.right  &&
-				pt.y >= mi.rcMonitor.top    &&
-				pt.y <  mi.rcMonitor.bottom
-			);
-		}
-		return false;
-	}
-
-	POINT get_physical_point_from_logical(HMONITOR hmon, POINT logical) noexcept {
-		POINT physical = logical;
-		UINT dpi_x, dpi_y;
-		if (GetDpiForMonitor(hmon, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y) == S_OK) {
-			physical.x = MulDiv(logical.x, dpi_x, 96);
-			physical.y = MulDiv(logical.y, dpi_y, 96);
-		}
-		return physical;
-	}
-
-	RECT get_monitor_rect(HMONITOR hmon) noexcept {
-		MONITORINFOEX mi{};
-		mi.cbSize = sizeof(MONITORINFOEX);
-		if (!::GetMonitorInfo(hmon, &mi)) {
-			return RECT{};
-		}
-		return mi.rcMonitor;
 	}
 
 	std::pair<UINT, UINT> get_monitor_dpi(HMONITOR hmon) noexcept {

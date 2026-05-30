@@ -2,7 +2,7 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2026-05-30
+ * @version 2026-05-31
  */
 
 #include "stdafx.h"
@@ -19,6 +19,8 @@ using namespace std::chrono;
 #include "lib/shell_exec.hpp"
 #include "lib/pref.hpp"
 #include "lib/win_util.hpp"
+#include "lib/mh.hpp"
+#include "lib/pt_mon.hpp"
 
 #include "edgeknock.h"
 #include "knock_detector.h"
@@ -46,16 +48,16 @@ ATOM InitApplication(HINSTANCE, const wchar_t* class_name) noexcept;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void WmCreate(HWND);
 void WmPaint(HWND) noexcept;
-void WmMouseMove(HWND, int, int) noexcept;
+void WmMouseMove(HWND, int, int);
 void WmHotkey(HWND, WPARAM);
-void WmTimer(HWND) noexcept;
+void WmTimer(HWND);
 void WmUser(HWND);
 void WmClose(HWND) noexcept;
 
 void LoadConfiguration(HWND hwnd);
 void SetHotkey(HWND hwnd, std::wstring_view key, int id) noexcept;
 
-void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const int cx, const int cy);
+void RecognizeGesture(HMONITOR hmon, HWND hwnd, const POINT pt, const SIZE scr);
 void ExecuteEdge(HMONITOR hmon, HWND hwnd, int area, int index);
 void ExecuteCorner(HMONITOR hmon, HWND hwnd, int corner);
 void ExecuteHotkey(HMONITOR hmon, HWND hwnd, int id);
@@ -124,8 +126,7 @@ void WmCreate(HWND hwnd) {
 	LoadConfiguration(hwnd);
 	module_directory_watcher::watch(hwnd, WM_USER);
 	::SetTimer(hwnd, 1, 100, nullptr);
-	SetOwnerWindow(hwnd);  // mh.dll
-	SetHook();  // mh.dll
+	mh::set_hook(hwnd);
 
 	HMONITOR hmon = ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
 	ShowMessage(hmon, hwnd, L"Edgeknock");
@@ -147,38 +148,17 @@ void WmPaint(HWND hwnd) noexcept {
 	::DeleteObject(dlgFont);
 }
 
-typedef struct tagWPT {
-	HWND hwnd;
-	LONG x;
-	LONG y;
-} WPT;
-
-void WmMouseMove(HWND hwnd, int x, int y) noexcept {
+void WmMouseMove(HWND hwnd, int x, int y) {
 	last_x = x;
 	last_y = y;
 
-	WPT logical{ hwnd, x, y };
+	HMONITOR hmon{};
+	POINT pt{};
+	SIZE scr{};
 
-	[[gsl::suppress("type.1")]]
-	::EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hmon, HDC, LPRECT, LPARAM lParam) -> BOOL {
-		[[gsl::suppress("type.1")]]
-		const WPT* wpt  = reinterpret_cast<WPT*>(lParam);
-		const HWND hwnd = wpt->hwnd;
-		const POINT pt  = { wpt->x, wpt->y };
-
-		if (window_utilities::is_point_in_monitor(hmon, pt)) {
-			const RECT mr = window_utilities::get_monitor_rect(hmon);
-			if (mr.top != 0 || mr.right != 0 || mr.left != 0 || mr.bottom != 0) {
-				const int x  = pt.x - mr.left;
-				const int y  = pt.y - mr.top;
-				const int cx = mr.right  - mr.left;
-				const int cy = mr.bottom - mr.top;
-				RecognizeGesture(hmon, hwnd, x, y, cx, cy);
-			}
-			return FALSE;
-		}
-		return TRUE;
-	}, reinterpret_cast<LPARAM>(&logical));
+	if (point_in_monitor::point_in_monitor(x, y, hmon, pt, scr)) {
+		RecognizeGesture(hmon, hwnd, pt, scr);
+	}
 }
 
 void WmHotkey(HWND hwnd, WPARAM id) {
@@ -189,7 +169,7 @@ void WmHotkey(HWND hwnd, WPARAM id) {
 	ExecuteHotkey(hmon, hwnd, gsl::narrow_cast<int>(id));
 }
 
-void WmTimer(HWND hwnd) noexcept {
+void WmTimer(HWND hwnd) {
 	WmMouseMove(hwnd, last_x, last_y);
 	if (MsgTimeLeft > 0 && --MsgTimeLeft == 0) {
 		ShowWindow(hwnd, SW_HIDE);
@@ -203,7 +183,7 @@ void WmUser(HWND hwnd) {
 }
 
 void WmClose(HWND hwnd) noexcept {
-	EndHook();  // mh.dll
+	mh::end_hook();
 	::DestroyWindow(hwnd);
 }
 
@@ -267,15 +247,15 @@ void SetHotkey(HWND hwnd, std::wstring_view key, int id) noexcept {
 // ----------------------------------------------------------------------------
 
 
-void RecognizeGesture(HMONITOR hmon, HWND hwnd, const int x, const int y, const int scr_w, const int scr_h) {
+void RecognizeGesture(HMONITOR hmon, HWND hwnd, const POINT pt, const SIZE scr) {
 	const auto t = system_clock::now();
 
-	const int corner = Cd.detect(t, x, y, scr_w, scr_h);
+	const int corner = Cd.detect(t, pt.x, pt.y, scr.cx, scr.cy);
 	if (corner != -1) {
 		ExecuteCorner(hmon, hwnd, corner);
 		return;
 	}
-	const knock_detector::area_index r = Kd.detect(t, x, y, scr_w, scr_h);
+	const knock_detector::area_index r = Kd.detect(t, pt.x, pt.y, scr.cx, scr.cy);
 	if (knock_detector::KNOCK <= r.area) {
 		ExecuteEdge(hmon, hwnd, r.area, r.index);
 	}
@@ -347,7 +327,8 @@ void ShowMessage(HMONITOR hmon, HWND hwnd, std::wstring_view msg, int corner, in
 	if (msg.empty()) {
 		return;
 	}
-	const RECT mr = window_utilities::get_monitor_rect(hmon);
+	RECT mr{};
+	point_in_monitor::get_monitor_rect(hmon, mr);
 	::MoveWindow(hwnd, mr.left, mr.top, 0, 0, FALSE);
 
 	const SIZE font = dc::get_text_size(hwnd, msg);

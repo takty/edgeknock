@@ -57,6 +57,9 @@
     <ClInclude Include="lib\win_util.hpp">
       <Filter>Header Files\Lib</Filter>
     </ClInclude>
+    <ClInclude Include="lib\pt_mon.hpp">
+      <Filter>Header Files\Lib</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
