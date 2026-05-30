@@ -2,7 +2,7 @@
  * Edgeknock (CPP)
  *
  * @author Takuto Yanagida
- * @version 2026-05-28
+ * @version 2026-05-30
  */
 
 #include "stdafx.h"
@@ -12,14 +12,17 @@
 using namespace std::chrono;
 
 #include "gsl/gsl"
+#include "lib/file_system.hpp"
+#include "lib/path.hpp"
+#include "lib/dc.hpp"
+#include "lib/mod_dir_watch.hpp"
+#include "lib/shell_exec.hpp"
+#include "lib/pref.hpp"
+#include "lib/win_util.hpp"
+
 #include "edgeknock.h"
-#include "win_util.h"
-#include "path.hpp"
-#include "file_system.hpp"
 #include "knock_detector.h"
 #include "corner_detector.h"
-#include "shell_executer.h"
-#include "pref.hpp"
 
 constexpr auto MAX_LINE = 1024;  // Max length of path with option string
 constexpr auto MAX_HOTKEY = 16;  // Max hotkey count
@@ -86,20 +89,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hinstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
 }
 
 ATOM InitApplication(HINSTANCE hinstance, const wchar_t* class_name) noexcept {
-	WNDCLASSEXW wcex{};
-	wcex.cbSize         = sizeof(WNDCLASSEX);
-	wcex.style          = CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc    = WndProc;
-	wcex.cbClsExtra     = 0;
-	wcex.cbWndExtra     = 0;
-	wcex.hInstance      = hinstance;
-	wcex.hIcon          = nullptr;
-	wcex.hCursor        = nullptr;
+	WNDCLASSEXW wc{};
+	wc.cbSize         = sizeof(WNDCLASSEX);
+	wc.style          = CS_HREDRAW | CS_VREDRAW;
+	wc.lpfnWndProc    = WndProc;
+	wc.cbClsExtra     = 0;
+	wc.cbWndExtra     = 0;
+	wc.hInstance      = hinstance;
+	wc.hIcon          = nullptr;
+	wc.hCursor        = nullptr;
 	[[gsl::suppress("type.1")]]
-	wcex.hbrBackground  = reinterpret_cast<HBRUSH>(COLOR_INFOBK + 1);
-	wcex.lpszMenuName   = nullptr;
-	wcex.lpszClassName  = class_name;
-	return ::RegisterClassExW(&wcex);
+	wc.hbrBackground  = reinterpret_cast<HBRUSH>(COLOR_INFOBK + 1);
+	wc.lpszMenuName   = nullptr;
+	wc.lpszClassName  = class_name;
+	return ::RegisterClassExW(&wc);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -119,7 +122,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
 
 void WmCreate(HWND hwnd) {
 	LoadConfiguration(hwnd);
-	win_util::watch_module_directory(hwnd, WM_USER);
+	module_directory_watcher::watch(hwnd, WM_USER);
 	::SetTimer(hwnd, 1, 100, nullptr);
 	SetOwnerWindow(hwnd);  // mh.dll
 	SetHook();  // mh.dll
@@ -134,7 +137,7 @@ void WmPaint(HWND hwnd) noexcept {
 
 	RECT r;
 	::GetClientRect(hwnd, &r);
-	HFONT dlgFont = win_util::get_default_font(hwnd);
+	HFONT dlgFont = dc::get_default_font(hwnd);
 	::SelectObject(hdc, dlgFont);
 	::SetBkMode(hdc, TRANSPARENT);
 	::SetTextColor(hdc, GetSysColor(COLOR_INFOTEXT));
@@ -163,14 +166,13 @@ void WmMouseMove(HWND hwnd, int x, int y) noexcept {
 		const HWND hwnd = wpt->hwnd;
 		const POINT pt  = { wpt->x, wpt->y };
 
-		if (win_util::is_point_in_monitor(hmon, pt)) {
-			MONITORINFOEX mi{};
-			mi.cbSize = sizeof(MONITORINFOEX);
-			if (::GetMonitorInfo(hmon, &mi)) {
-				const int x  = pt.x - mi.rcMonitor.left;
-				const int y  = pt.y - mi.rcMonitor.top;
-				const int cx = mi.rcMonitor.right - mi.rcMonitor.left;
-				const int cy = mi.rcMonitor.bottom - mi.rcMonitor.top;
+		if (window_utilities::is_point_in_monitor(hmon, pt)) {
+			const RECT mr = window_utilities::get_monitor_rect(hmon);
+			if (mr.top != 0 || mr.right != 0 || mr.left != 0 || mr.bottom != 0) {
+				const int x  = pt.x - mr.left;
+				const int y  = pt.y - mr.top;
+				const int cx = mr.right  - mr.left;
+				const int cy = mr.bottom - mr.top;
 				RecognizeGesture(hmon, hwnd, x, y, cx, cy);
 			}
 			return FALSE;
@@ -307,10 +309,10 @@ void Execute(HMONITOR hmon, HWND hwnd, std::wstring_view path, int corner, int a
 	if (path.empty()) {
 		return;
 	}
-	if (FullScreenCheck && win_util::is_foreground_window_fullscreen()) return;
+	if (FullScreenCheck && window_utilities::is_foreground_window_fullscreen()) return;
 	if (shell_executer::is_executing() != 0) return;  // When starting program
 
-	win_util::set_foreground_window(hwnd);
+	window_utilities::set_foreground_window(hwnd);
 
 	std::wstring cmd, opt;
 	ExtractCommandLine(path, cmd, opt);
@@ -345,10 +347,10 @@ void ShowMessage(HMONITOR hmon, HWND hwnd, std::wstring_view msg, int corner, in
 	if (msg.empty()) {
 		return;
 	}
-	const RECT mr = win_util::get_monitor_rect(hmon);
+	const RECT mr = window_utilities::get_monitor_rect(hmon);
 	::MoveWindow(hwnd, mr.left, mr.top, 0, 0, FALSE);
 
-	const SIZE font = win_util::get_text_size(hwnd, msg);
+	const SIZE font = dc::get_text_size(hwnd, msg);
 	const int w = font.cx + 10, h = font.cy + 10;
 
 	POINT p;
@@ -358,7 +360,7 @@ void ShowMessage(HMONITOR hmon, HWND hwnd, std::wstring_view msg, int corner, in
 	const int scr_w = mr.right - mr.left;
 	const int scr_h = mr.bottom - mr.top;
 
-	auto [dpi_x, dpi_y] = win_util::get_monitor_dpi(hmon);
+	auto [dpi_x, dpi_y] = window_utilities::get_monitor_dpi(hmon);
 	const int off_x = ::GetSystemMetricsForDpi(SM_CXCURSOR, dpi_x);
 	const int off_y = ::GetSystemMetricsForDpi(SM_CYCURSOR, dpi_y);
 

@@ -30,25 +30,31 @@
     <ClInclude Include="edgeknock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="win_util.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="corner_detector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="knock_detector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shell_executer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="file_system.hpp">
+    <ClInclude Include="lib\dc.hpp">
       <Filter>Header Files\Lib</Filter>
     </ClInclude>
-    <ClInclude Include="path.hpp">
+    <ClInclude Include="lib\file_system.hpp">
       <Filter>Header Files\Lib</Filter>
     </ClInclude>
-    <ClInclude Include="pref.hpp">
+    <ClInclude Include="lib\mod_dir_watch.hpp">
+      <Filter>Header Files\Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\path.hpp">
+      <Filter>Header Files\Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\pref.hpp">
+      <Filter>Header Files\Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\shell_exec.hpp">
+      <Filter>Header Files\Lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\win_util.hpp">
       <Filter>Header Files\Lib</Filter>
     </ClInclude>
   </ItemGroup>

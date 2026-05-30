@@ -1,12 +1,32 @@
 {
 	"cSpell.words": [
+		"beginthreadex",
 		"CXCURSOR",
+		"CXSCREEN",
 		"CYCURSOR",
+		"CYSCREEN",
+		"DDEWAIT",
 		"Edgeknock",
+		"GETFOREGROUNDLOCKTIMEOUT",
+		"GETNONCLIENTMETRICS",
+		"HFONT",
 		"HHOOK",
 		"HINSTANCE",
 		"hmon",
 		"HMONITOR",
-		"LPWSTR"
+		"HREDRAW",
+		"INFOBK",
+		"lpfn",
+		"lpsz",
+		"LPWSTR",
+		"MONITORINFOEX",
+		"NONCLIENTMETRICS",
+		"PAINTSTRUCT",
+		"RPTFWN",
+		"SETFOREGROUNDLOCKTIMEOUT",
+		"SHELLEXECUTEINFO",
+		"TOOLWINDOW",
+		"WNDCLASSEX",
+		"WNDCLASSEXW"
 	]
 }

@@ -201,15 +201,17 @@
   <ItemGroup>
     <ClInclude Include="edgeknock.h" />
     <ClInclude Include="corner_detector.h" />
-    <ClInclude Include="file_system.hpp" />
     <ClInclude Include="knock_detector.h" />
-    <ClInclude Include="path.hpp" />
-    <ClInclude Include="pref.hpp" />
+    <ClInclude Include="lib\dc.hpp" />
+    <ClInclude Include="lib\file_system.hpp" />
+    <ClInclude Include="lib\mod_dir_watch.hpp" />
+    <ClInclude Include="lib\path.hpp" />
+    <ClInclude Include="lib\pref.hpp" />
+    <ClInclude Include="lib\shell_exec.hpp" />
+    <ClInclude Include="lib\win_util.hpp" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="shell_executer.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="win_util.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="edgeknock.cpp" />
