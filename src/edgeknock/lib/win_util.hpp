@@ -81,10 +81,7 @@ namespace window_utilities {
 
 		for (const DWORD tar_pid : params->pids) {
 			if (pid == tar_pid) {
-				const BOOL visible = ::IsWindowVisible(hwnd);
-				const HWND owner = ::GetWindow(hwnd, GW_OWNER);
-
-				if (visible && owner == nullptr) {
+				if (::IsWindowVisible(hwnd) && ::GetWindow(hwnd, GW_OWNER) == nullptr) {
 					params->hwnd = hwnd;
 					return FALSE;
 				}
@@ -93,51 +90,38 @@ namespace window_utilities {
 		return TRUE;
 	}
 
-	BOOL CALLBACK enum_windows_for_fallback(HWND hwnd, LPARAM lParam) noexcept {
-		[[gsl::suppress("type.1")]]
-		auto* out = reinterpret_cast<HWND*>(lParam);
-		if (out == nullptr || *out != nullptr) {
-			return FALSE;
-		}
-
-		if (!::IsWindowVisible(hwnd) || ::GetWindow(hwnd, GW_OWNER) != nullptr) {
-			return TRUE;
-		}
-
-		wchar_t className[256]{};
-		::GetClassName(hwnd, &className[0], 256);
-		if (wcscmp(&className[0], L"Edgeknock") == 0) {
-			return TRUE;
-		}
-		if (wcscmp(&className[0], L"CabinetWClass") != 0 &&
-			wcscmp(&className[0], L"ExploreWClass") != 0 &&
-			wcscmp(&className[0], L"ApplicationFrameWindow") != 0) {
-			return TRUE;
-		}
-
-		*out = hwnd;
-		return FALSE;
-	}
-
-	bool is_shell_window_candidate(HWND hwnd) noexcept {
+	bool is_candidate_shell_top_level_window(HWND hwnd) noexcept {
 		if (hwnd == nullptr) {
 			return false;
 		}
 		if (!::IsWindowVisible(hwnd) || ::GetWindow(hwnd, GW_OWNER) != nullptr) {
 			return false;
 		}
-
 		wchar_t class_name[256]{};
 		::GetClassName(hwnd, &class_name[0], 256);
-		if (wcscmp(&class_name[0], L"Edgeknock") == 0) {
+		const std::wstring_view cn{ &class_name[0] };
+
+		if (cn == L"Edgeknock") {
 			return false;
 		}
-		if (wcscmp(&class_name[0], L"CabinetWClass") == 0 ||
-			wcscmp(&class_name[0], L"ExploreWClass") == 0 ||
-			wcscmp(&class_name[0], L"ApplicationFrameWindow") == 0) {
-			return true;
+		return (
+			cn == L"CabinetWClass" ||
+			cn == L"ExploreWClass" ||
+			cn == L"ApplicationFrameWindow"
+		);
+	}
+
+	BOOL CALLBACK enum_windows_for_fallback(HWND hwnd, LPARAM lParam) noexcept {
+		[[gsl::suppress("type.1")]]
+		auto* out = reinterpret_cast<HWND*>(lParam);
+		if (out == nullptr || *out != nullptr) {
+			return FALSE;
 		}
-		return false;
+		if (!is_candidate_shell_top_level_window(hwnd)) {
+			return TRUE;
+		}
+		*out = hwnd;
+		return FALSE;
 	}
 
 	std::vector<DWORD> get_child_pids(DWORD pid) noexcept {
@@ -158,13 +142,6 @@ namespace window_utilities {
 		return cps;
 	}
 
-	HWND find_fallback_window_for_launch() noexcept {
-		HWND found = nullptr;
-		[[gsl::suppress("type.1")]]
-		::EnumWindows(enum_windows_for_fallback, reinterpret_cast<LPARAM>(&found));
-		return found;
-	}
-
 	HWND find_main_window_by_pid(DWORD pid) noexcept {
 		find_window_params params{ {}, nullptr };
 		if (pid != 0) {
@@ -183,25 +160,22 @@ namespace window_utilities {
 							params.pids.insert(params.pids.end(), gs.begin(), gs.end());
 						}
 					}
-					const HWND fg = ::GetForegroundWindow();
-					if (is_shell_window_candidate(fg)) {
-						params.hwnd = fg;
-						break;
-					}
 				}
-			} else {
+			}
+			if (params.hwnd == nullptr) {
 				const HWND fg = ::GetForegroundWindow();
-				if (is_shell_window_candidate(fg)) {
+				if (is_candidate_shell_top_level_window(fg)) {
 					params.hwnd = fg;
 					break;
 				}
 			}
-
 			::Sleep(50);
 		}
-
 		if (params.hwnd == nullptr && pid == 0) {
-			params.hwnd = find_fallback_window_for_launch();
+			HWND found = nullptr;
+			[[gsl::suppress("type.1")]]
+			::EnumWindows(enum_windows_for_fallback, reinterpret_cast<LPARAM>(&found));
+			params.hwnd = found;
 		}
 		return params.hwnd;
 	}
