@@ -208,39 +208,34 @@ namespace window_utilities {
 		if (tar_dpi_x == 0) tar_dpi_x = 96;
 		if (tar_dpi_y == 0) tar_dpi_y = 96;
 
-		const int win_w = win_r.right  - win_r.left;
-		const int win_h = win_r.bottom - win_r.top;
+		int win_w = win_r.right  - win_r.left;
+		int win_h = win_r.bottom - win_r.top;
 		const int tar_mon_w = tar_mon_r.right   - tar_mon_r.left;
 		const int tar_mon_h = tar_mon_r.bottom  - tar_mon_r.top;
 		const int rel_x = win_r.left - cur_mon_r.left;
 		const int rel_y = win_r.top  - cur_mon_r.top;
 
-		int scaled_w = ::MulDiv(win_w, gsl::narrow_cast<int>(tar_dpi_x), gsl::narrow_cast<int>(cur_dpi_x));
-		int scaled_h = ::MulDiv(win_h, gsl::narrow_cast<int>(tar_dpi_y), gsl::narrow_cast<int>(cur_dpi_y));
-		if (scaled_w <= 0) scaled_w = win_w;
-		if (scaled_h <= 0) scaled_h = win_h;
-
 		int x = tar_mon_r.left + ::MulDiv(rel_x, gsl::narrow_cast<int>(tar_dpi_x), gsl::narrow_cast<int>(cur_dpi_x));
 		int y = tar_mon_r.top  + ::MulDiv(rel_y, gsl::narrow_cast<int>(tar_dpi_y), gsl::narrow_cast<int>(cur_dpi_y));
 
-		if (scaled_w > tar_mon_w) {
-			scaled_w = tar_mon_w;
+		if (win_w > tar_mon_w) {
+			win_w = tar_mon_w;
 			x = tar_mon_r.left;
 		} else {
-			const int max_x = tar_mon_r.right - scaled_w;
+			const int max_x = tar_mon_r.right - win_w;
 			if (x < tar_mon_r.left) x = tar_mon_r.left;
 			if (x > max_x) x = max_x;
 		}
-		if (scaled_h > tar_mon_h) {
-			scaled_h = tar_mon_h;
+		if (win_h > tar_mon_h) {
+			win_h = tar_mon_h;
 			y = tar_mon_r.top;
 		} else {
-			const int max_y = tar_mon_r.bottom - scaled_h;
+			const int max_y = tar_mon_r.bottom - win_h;
 			if (y < tar_mon_r.top) y = tar_mon_r.top;
 			if (y > max_y) y = max_y;
 		}
 
-		::MoveWindow(wnd, x, y, scaled_w, scaled_h, TRUE);
+		::MoveWindow(wnd, x, y, win_w, win_h, TRUE);
 		return true;
 	}
 
