@@ -299,7 +299,7 @@ void Execute(HMONITOR hmon, HWND hwnd, std::wstring_view path, int corner, int a
 	auto fn = path::name(cmd);
 	ShowMessage(hmon, hwnd, fn, corner, area);  // Show message first
 
-	shell_executer::execute(cmd, opt);
+	shell_executer::execute(cmd, opt, hmon);
 }
 
 void ExtractCommandLine(std::wstring_view path, std::wstring& cmd, std::wstring& opt) noexcept {
